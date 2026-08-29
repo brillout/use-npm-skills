@@ -1,0 +1,38 @@
+{
+  "name": "use-npm-skills",
+  "version": "0.1.0",
+  "description": "Install AI agent skills (SKILL.md) as npm packages — versioned by npm and your lockfile",
+  "keywords": [
+    "skills",
+    "agent-skills",
+    "SKILL.md",
+    "ai",
+    "agents",
+    "claude",
+    "claude-code",
+    "cursor",
+    "codex"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brillout/use-npm-skills.git"
+  },
+  "homepage": "https://github.com/brillout/use-npm-skills#readme",
+  "license": "MIT",
+  "author": "brillout",
+  "bin": {
+    "use-npm-skills": "./cli.js"
+  },
+  "files": [
+    "cli.js",
+    "postinstall.js",
+    "src"
+  ],
+  "scripts": {
+    "postinstall": "node ./postinstall.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
