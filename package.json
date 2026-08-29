@@ -26,7 +26,8 @@
   "files": [
     "cli.js",
     "postinstall.js",
-    "src"
+    "src",
+    "!src/*.md"
   ],
   "scripts": {
     "postinstall": "node ./postinstall.js",
