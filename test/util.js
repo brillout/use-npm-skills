@@ -77,7 +77,6 @@ const SCRUB_ENV = [
   'npm_config_global',
   'INIT_CWD',
   'PNPM_SCRIPT_SRC_DIR',
-  'USE_NPM_SKILLS_TEST_DISABLE_LINKS',
 ]
 
 function cleanEnv(extra = {}) {

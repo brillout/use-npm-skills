@@ -78,7 +78,7 @@ function findProjectRoot(startDir) {
   return findUp(startDir, (dir) => fs.existsSync(path.join(dir, 'package.json')))
 }
 
-const CONFIG_KEYS = ['postinstall', 'gitCommit', 'skillsDirs', 'exclude', 'neverCopy']
+const CONFIG_KEYS = ['postinstall', 'gitCommit', 'skillsDirs', 'exclude']
 
 function normalizeSkillsDir(dir) {
   const trimmed = String(dir).trim().replace(/[\\/]+$/, '')
@@ -90,7 +90,7 @@ function normalizeSkillsDir(dir) {
 
 // Configuration lives under package.json#use-npm-skills at the project root.
 function readConfig(rootDir) {
-  const config = { postinstall: true, gitCommit: true, skillsDirs: null, exclude: [], neverCopy: false, warnings: [] }
+  const config = { postinstall: true, gitCommit: true, skillsDirs: null, exclude: [], warnings: [] }
   let pkg
   try {
     pkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'))
@@ -109,7 +109,7 @@ function readConfig(rootDir) {
       config.warnings.push(`Unknown option package.json#use-npm-skills.${key} (known options: ${CONFIG_KEYS.join(', ')})`)
     }
   }
-  for (const key of ['postinstall', 'gitCommit', 'neverCopy']) {
+  for (const key of ['postinstall', 'gitCommit']) {
     if (raw[key] === undefined) continue
     if (typeof raw[key] === 'boolean') config[key] = raw[key]
     else config.warnings.push(`Ignoring package.json#use-npm-skills.${key}: expected a boolean`)

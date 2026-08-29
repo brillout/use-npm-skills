@@ -1,67 +1,48 @@
 Creates and maintains the managed entries inside the skills directories — and guarantees that
-nothing else in those directories is ever touched.
+nothing else in those directories, and nothing the developer edited, is ever touched.
 
 ## User story
 
 From the root `SPEC.md`:
 
-- **Skills as dependencies** — each installed skill ends up as an entry agents can read.
+- **Skills as dependencies** / **Skills in the repository** — each installed skill ends up as
+  a committed directory agents can read on any checkout.
 - **Hands-off syncing** — entries follow the installed packages: refreshed when outdated,
   removed when their package is gone.
-- **Trust and control** — the developer's own files in the skills directories are sacrosanct.
-
-## Glossary
-
-- **copy marker** — a file inside a managed copy (`.use-npm-skills-copy.json`) recording the
-  source package and version; it is what marks the copy as managed, allowing later runs to
-  refresh or remove it.
+- **Trust and control** — the developer's own files in the skills directories, and their
+  edits to committed skill content, are sacrosanct.
 
 ## Business logic — TL;DR
 
-- **Linking** — one entry per skill per target skills directory, linking into
-  `node_modules/`; correct entries are recognized and left alone, wrong ones replaced.
-- **The copy fallback** — where links cannot be created, skills are copied instead, with a
-  copy marker making the copies refreshable and removable.
-- **Hands off everything unmanaged** — entries not created by `use-npm-skills` are never
-  overwritten or deleted, only warned about.
+- **Copying** — one managed entry per skill per target skills directory: a copy of the
+  skill, carrying the entry marker; entries at the installed version are recognized and left
+  alone, outdated ones refreshed.
+- **Hands off everything unmanaged or hand-edited** — entries not created by
+  `use-npm-skills` are never overwritten or deleted, and entries whose committed content the
+  developer modified are never refreshed or removed; each case is warned about.
 - **Removing stale entries** — managed entries whose skill is no longer wanted are removed;
   this also runs (and is all that runs) when zero skill packages are installed.
+- **Migration from v0.1** — leftovers of the tool's former link-based mechanism are
+  recognized and replaced or removed.
 
 ## Business logic
 
-### Linking
+### Copying
 
 #### User story
 
-Skills as dependencies (root `SPEC.md`).
+Skills as dependencies, Skills in the repository (root `SPEC.md`).
 
 #### Business logic
 
-- Each target skills directory is created if missing, and gets one managed entry per skill:
-  a link pointing at the skill's location inside `node_modules/`. On POSIX systems the links
-  are relative; on Windows they are junctions — directory links that require no privilege but
-  do require absolute targets, which is acceptable because managed entries never enter
-  version control.
-- An entry that already links to the right place is recognized and left untouched (re-runs
-  are no-ops); a managed link pointing elsewhere is replaced.
-
-### The copy fallback
-
-#### User story
-
-Skills as dependencies, Trust and control (root `SPEC.md`).
-
-#### Business logic
-
-- Where a link cannot be created (e.g. exotic file systems), the skill is copied into the
-  skills directory instead, and the fallback is announced with the advice to re-run after
-  updating skill packages (copies, unlike links, don't follow `node_modules/` on their own).
-- A managed copy carries a copy marker recording the source package and version: a later run
-  finding the same version treats the copy as current, a different version refreshes it.
-  Copies are not converted back to links — on a system that needed copies once, retrying
-  links on every run would churn.
+- Each target skills directory is created if missing, and gets one managed entry per skill: a
+  directory holding a copy of the skill's files. Nested `node_modules/` and `.git/`
+  directories of the skill package are not copied.
+- Every managed entry carries the entry marker recording the source package and version. A
+  later run finding the entry at the installed package's version treats it as current
+  (re-runs are no-ops); a different version refreshes the entry — a full replacement, not a
+  merge.
 - A copy that fails halfway is removed entirely rather than left behind.
-- The `neverCopy` configuration replaces the fallback with a warning and a skip.
 
 #### Rationale
 
@@ -69,7 +50,7 @@ Skills as dependencies, Trust and control (root `SPEC.md`).
   hands-off rule — never be touched again, silently shadowing the skill. Hence: no marker,
   no leftover.
 
-### Hands off everything unmanaged
+### Hands off everything unmanaged or hand-edited
 
 #### User story
 
@@ -77,10 +58,12 @@ Trust and control (root `SPEC.md`).
 
 #### Business logic
 
-An entry that is neither a link nor a copy carrying the copy marker was not created by
-`use-npm-skills` and is never overwritten or deleted — even when it occupies a managed
-(`npm-`-prefixed) name. It is warned about and skipped; the developer decides whether to
-remove it.
+- An entry that does not carry the entry marker was not created by `use-npm-skills` and is
+  never overwritten or deleted — even when it occupies a managed (`npm-`-prefixed) name. It
+  is warned about and skipped; the developer decides whether to remove it.
+- A managed entry with uncommitted changes to its git-tracked content — the developer
+  hand-edited committed skill files — is never refreshed or removed. The warning names the
+  way out: revert the edits, or exclude the package.
 
 ### Removing stale entries
 
@@ -90,13 +73,26 @@ Hands-off syncing (root `SPEC.md`).
 
 #### Business logic
 
-- Managed-named entries whose skill is not in the current set — the package was uninstalled,
+- Managed entries whose skill is not in the current set — the package was uninstalled,
   excluded, or no longer usable as a skill — are removed from the target skills directories.
-  Only what `use-npm-skills` itself creates is removed: links, and copies carrying the copy
-  marker. Anything else gets a warning and stays.
+  Only what `use-npm-skills` itself creates is removed: entries carrying the entry marker
+  (and legacy links, see below). Anything else gets a warning and stays.
 - When zero skill packages are installed, this cleanup is the only thing that happens, and
   only inside skills directories that already exist — no directory is created (see
-  `src/sync.SPEC.md` for the zero-side-effects rule).
+  `src/sync.SPEC.md` for the zero-side-effects rule and the fresh-checkout protection).
+
+### Migration from v0.1
+
+#### User story
+
+Hands-off syncing (root `SPEC.md`).
+
+#### Business logic
+
+`use-npm-skills` v0.1 materialized skills as links into `node_modules/` (kept out of version
+control) instead of committed copies. Those leftovers are migrated on sight: a link occupying
+a managed entry's spot is replaced by the committed copy, a stale link is removed, and the
+former marker-file name is recognized so v0.1-era copies refresh cleanly.
 
 ## Before modifying/creating SPEC.md files
 

@@ -15,8 +15,6 @@ From the root `SPEC.md`:
 - **One package = one skill** — a root `SKILL.md`, or exactly one `skills/<dir>/SKILL.md`;
   anything else is skipped with a warning.
 - **Entry naming** — `npm-<package name>` (scope marker dropped, separators become hyphens).
-- **Logical paths** — skill locations are `node_modules/<package>` paths, never resolved to
-  their physical location.
 
 ## Business logic
 
@@ -74,23 +72,6 @@ Skills as dependencies (root `SPEC.md`).
 - The `npm-` prefix marks entries as managed by `use-npm-skills`; naming by package name
   makes collisions all but impossible (npm names are unique). Neither affects agents: the
   skill name agents see comes from the `SKILL.md` frontmatter, not from the entry name.
-
-### Logical paths
-
-#### User story
-
-Hands-off syncing (root `SPEC.md`): entries must survive package updates.
-
-#### Business logic
-
-Skill locations are recorded as `node_modules/<package>` paths and never resolved to their
-physical location.
-
-#### Rationale
-
-- On pnpm, `node_modules/` entries are links into a store directory whose paths encode the
-  package version — resolving them would bake in paths that dangle on every upgrade. The
-  logical path keeps pointing at whatever version is installed.
 
 ## Before modifying/creating SPEC.md files
 

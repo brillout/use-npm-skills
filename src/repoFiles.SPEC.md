@@ -1,19 +1,20 @@
-Keeps two of the project's own files in shape: `.gitignore` (managed entries must never be
-committed) and `package.json` (the root postinstall hook that keeps future installs syncing).
+Keeps two of the project's own files in shape: `.gitignore` (cleaning up the legacy v0.1
+rule) and `package.json` (the root postinstall hook that keeps future installs syncing).
 
 ## User story
 
 From the root `SPEC.md`:
 
-- **Skills as dependencies** — machine-local entries must not leak into version control.
+- **Skills in the repository** — nothing may keep the committed skills out of version
+  control.
 - **Hands-off syncing** — future installs must sync even on package managers that don't run
   dependency install scripts.
 - **Trust and control** — edits to the developer's files are minimal and style-preserving.
 
 ## Business logic — TL;DR
 
-- **`.gitignore` upkeep** — ensures ignore patterns covering the managed entries of every
-  target skills directory; only missing lines are added.
+- **Legacy `.gitignore` cleanup** — the ignore rule v0.1 maintained would silently keep
+  committed skills out of git; it is removed on sight.
 - **The root postinstall hook** — `"postinstall": "npx use-npm-skills"` is added to the
   project's `package.json`, by explicit runs only, and only when the stamp proves the package
   manager doesn't run dependency install scripts.
@@ -21,24 +22,19 @@ From the root `SPEC.md`:
 
 ## Business logic
 
-### `.gitignore` upkeep
+### Legacy `.gitignore` cleanup
 
 #### User story
 
-Skills as dependencies (root `SPEC.md`).
+Skills in the repository (root `SPEC.md`).
 
 #### Business logic
 
-- The project's `.gitignore` is made to ignore the managed entries of every target skills
-  directory: a single `**/skills/npm-*` pattern covers all directories named `skills`; a
-  target directory not named `skills` gets its own `<dir>/npm-*` line.
-- Only lines that are missing are appended; the file is created if absent; its line-ending
-  style is preserved.
-
-#### Rationale
-
-- Managed entries are machine-local paths into `node_modules/`, recreated on any machine by a
-  sync — committing them would break other machines' checkouts.
+`use-npm-skills` v0.1 kept managed entries out of version control and maintained `.gitignore`
+rules to that effect. Committed skills invert this: a leftover rule would silently keep them
+out of git. Syncs therefore remove the rules v0.1 wrote — exactly those lines, everything
+else preserved (line-ending style included), announced. A `.gitignore` that consisted only of
+the legacy rule is deleted outright.
 
 ### The root postinstall hook
 

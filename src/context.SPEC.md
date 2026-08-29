@@ -16,7 +16,7 @@ From the root `SPEC.md`:
   weaker "may be part of an install" notion for the exit-code policy.
 - **The project root** — the nearest ancestor directory with a lockfile; fallbacks for
   lockfile-less projects.
-- **Configuration** — five optional options under `use-npm-skills` in the project root's
+- **Configuration** — four optional options under `use-npm-skills` in the project root's
   `package.json`; configuration problems warn and fall back to the defaults, never abort.
 
 ## Business logic
@@ -88,9 +88,7 @@ Trust and control (root `SPEC.md`).
     sync into. Each entry must be a relative path inside the project; entries are normalized,
     and invalid ones are dropped with a warning.
   - `exclude` (default empty) — skill packages, by name, whose skills are skipped (and
-    removed if previously linked).
-  - `neverCopy` (default `false`) — `true` disables the copy fallback used where links cannot
-    be created.
+    removed if previously synced).
 - Configuration problems never abort a run: an unreadable `package.json`, a malformed
   `use-npm-skills` value, unknown options, and wrongly typed values each produce a warning,
   and the defaults are kept.

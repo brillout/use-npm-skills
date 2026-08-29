@@ -7,32 +7,32 @@ const { DOCS_URL } = require('./context.js')
 
 const WIRED_SCRIPT = 'npx use-npm-skills'
 
-// Managed skill entries must never be committed: they are machine-local links into
-// node_modules, recreated on any machine by `npx use-npm-skills`.
-function gitignoreLinesFor(targetDirsRel) {
-  const lines = []
-  if (targetDirsRel.some((d) => d === 'skills' || d.endsWith('/skills'))) lines.push('**/skills/npm-*')
-  for (const d of targetDirsRel) {
-    if (d !== 'skills' && !d.endsWith('/skills')) lines.push(d + '/npm-*')
-  }
-  return lines
-}
-
-function ensureGitignore(rootDir, targetDirsRel) {
+// use-npm-skills v0.1 materialized skills as gitignored links and added these rules. Skills
+// are committed to the repo now, so leftover rules would silently keep them out of git —
+// remove them on sight.
+function removeLegacyGitignoreLines(rootDir, skillsDirsRel) {
   const gitignorePath = path.join(rootDir, '.gitignore')
-  let content = null
+  let content
   try {
     content = fs.readFileSync(gitignorePath, 'utf8')
-  } catch {}
-  const existingLines = content === null ? [] : content.split(/\r?\n/).map((l) => l.trim())
-  const missing = gitignoreLinesFor(targetDirsRel).filter((l) => !existingLines.includes(l))
-  if (missing.length === 0) return { changed: false }
-  const eol = content !== null && content.includes('\r\n') ? '\r\n' : '\n'
-  let updated = content === null ? '' : content
-  if (updated !== '' && !updated.endsWith('\n')) updated += eol
-  updated += missing.join(eol) + eol
-  fs.writeFileSync(gitignorePath, updated)
-  return { changed: true, created: content === null, added: missing }
+  } catch {
+    return { changed: false }
+  }
+  const legacy = new Set(['**/skills/npm-*'])
+  for (const dir of skillsDirsRel) legacy.add(dir + '/npm-*')
+  const lines = content.split(/\r?\n/)
+  const kept = lines.filter((line) => !legacy.has(line.trim()))
+  if (kept.length === lines.length) return { changed: false }
+  const eol = content.includes('\r\n') ? '\r\n' : '\n'
+  const remaining = kept.join(eol)
+  if (remaining.trim() === '') {
+    fs.unlinkSync(gitignorePath)
+    log.info('Deleted .gitignore — it only contained the legacy use-npm-skills rule (skills are committed to the repo now).')
+    return { changed: true, deleted: true }
+  }
+  fs.writeFileSync(gitignorePath, remaining)
+  log.info('Removed the legacy use-npm-skills rule from .gitignore (skills are committed to the repo now).')
+  return { changed: true }
 }
 
 // Rewrite a JSON file while preserving its indentation, line endings, and trailing newline.
@@ -103,4 +103,4 @@ function ensurePostinstallWiring(ctx) {
   return { changed: true, script: merged }
 }
 
-module.exports = { ensureGitignore, ensurePostinstallWiring, writeJsonPreservingStyle }
+module.exports = { removeLegacyGitignoreLines, ensurePostinstallWiring, writeJsonPreservingStyle }

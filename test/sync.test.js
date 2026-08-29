@@ -6,33 +6,38 @@ const fs = require('fs')
 const path = require('path')
 const { makeProject, makeTmpDir, installSkillPkg, runCli, writeFile, writeJson, makeDirLink, isLink, exists } = require('./util.js')
 
-function skillMd(projectDir, dirRel, linkName) {
-  return fs.readFileSync(path.join(projectDir, dirRel, linkName, 'SKILL.md'), 'utf8')
+const MARKER = '.use-npm-skills.json'
+
+function skillMd(projectDir, dirRel, entryName) {
+  return fs.readFileSync(path.join(projectDir, dirRel, entryName, 'SKILL.md'), 'utf8')
 }
 
-test('links a skill package (root SKILL.md) into both default dirs and sets up .gitignore', () => {
+function readMarker(projectDir, dirRel, entryName) {
+  return JSON.parse(fs.readFileSync(path.join(projectDir, dirRel, entryName, MARKER), 'utf8'))
+}
+
+// A managed entry as previous runs of the tool would have left it.
+function writeManagedDir(projectDir, dirRel, entryName, { pkgName = entryName.replace(/^npm-/, ''), version = '1.0.0', markerName = MARKER } = {}) {
+  const dir = path.join(projectDir, dirRel, entryName)
+  writeFile(path.join(dir, 'SKILL.md'), `stale content of ${pkgName}\n`)
+  writeJson(path.join(dir, markerName), { package: pkgName, version })
+  return dir
+}
+
+test('copies a skill package (root SKILL.md) into both default dirs as committed content', () => {
   const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
   const res = runCli(dir)
   assert.strictEqual(res.status, 0)
   for (const target of ['.claude/skills', '.agents/skills']) {
+    const entry = path.join(dir, target, 'npm-skill-a')
+    assert.ok(!isLink(entry) && fs.statSync(entry).isDirectory(), `${target}: expected a real directory, not a link`)
     assert.match(skillMd(dir, target, 'npm-skill-a'), /test skill of skill-a/)
+    const marker = readMarker(dir, target, 'npm-skill-a')
+    assert.strictEqual(marker.package, 'skill-a')
+    assert.strictEqual(marker.version, '1.0.0')
   }
-  const gitignore = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8')
-  assert.ok(gitignore.includes('**/skills/npm-*'))
+  assert.ok(!exists(path.join(dir, '.gitignore'))) // nothing is gitignored anymore
   assert.match(res.output, /Synced 1 skill into \.claude\/skills\/ \+ \.agents\/skills\/ \(2 created\)/)
-})
-
-test('links point at the logical node_modules path (relative on POSIX)', () => {
-  const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
-  runCli(dir)
-  const linkPath = path.join(dir, '.claude/skills/npm-skill-a')
-  assert.ok(isLink(linkPath))
-  if (process.platform !== 'win32') {
-    const target = fs.readlinkSync(linkPath)
-    assert.ok(!path.isAbsolute(target), `expected a relative link target, got: ${target}`)
-    assert.ok(target.split(path.sep).join('/').endsWith('node_modules/skill-a'))
-    assert.ok(!target.includes('.pnpm'))
-  }
 })
 
 test('supports the skills/<dir>/SKILL.md layout', () => {
@@ -47,6 +52,18 @@ test('scoped packages: @matt/grilling → npm-matt-grilling', () => {
   assert.match(skillMd(dir, '.claude/skills', 'npm-matt-grilling'), /test skill of @matt\/grilling/)
 })
 
+test('does not copy nested node_modules or .git of a skill package', () => {
+  const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
+  writeFile(path.join(dir, 'node_modules', 'skill-a', 'node_modules', 'dep', 'index.js'), 'junk\n')
+  writeFile(path.join(dir, 'node_modules', 'skill-a', '.git', 'HEAD'), 'ref\n')
+  writeFile(path.join(dir, 'node_modules', 'skill-a', 'reference.md'), 'extra skill file\n')
+  runCli(dir)
+  const entry = path.join(dir, '.claude/skills/npm-skill-a')
+  assert.ok(!exists(path.join(entry, 'node_modules')))
+  assert.ok(!exists(path.join(entry, '.git')))
+  assert.ok(exists(path.join(entry, 'reference.md'))) // other files are copied faithfully
+})
+
 test('zero skill packages found ⇒ zero side effects', () => {
   const dir = makeProject()
   installSkillPkg(dir, { name: 'regular-dep', dependsOnUs: false })
@@ -55,22 +72,29 @@ test('zero skill packages found ⇒ zero side effects', () => {
   assert.match(res.output, /No skill packages found/)
   assert.ok(!exists(path.join(dir, '.claude')))
   assert.ok(!exists(path.join(dir, '.agents')))
-  assert.ok(!exists(path.join(dir, '.gitignore')))
   assert.strictEqual(readPkg(dir).scripts, undefined) // no postinstall wiring
 })
 
 test('zero skill packages but stale managed entries ⇒ cleans them up, no other side effects', () => {
   const dir = makeProject()
-  const elsewhere = path.join(dir, 'somewhere')
-  fs.mkdirSync(elsewhere, { recursive: true })
-  makeDirLink(elsewhere, path.join(dir, '.claude/skills/npm-gone'))
+  installSkillPkg(dir, { name: 'regular-dep', dependsOnUs: false }) // node_modules exists, no skill packages
+  writeManagedDir(dir, '.claude/skills', 'npm-gone')
   writeFile(path.join(dir, '.claude/skills/user-skill/SKILL.md'), 'mine\n')
   const res = runCli(dir)
   assert.match(res.output, /removed 1 stale entry/)
   assert.ok(!exists(path.join(dir, '.claude/skills/npm-gone')))
   assert.ok(exists(path.join(dir, '.claude/skills/user-skill/SKILL.md')))
-  assert.ok(!exists(path.join(dir, '.gitignore')))
   assert.ok(!exists(path.join(dir, '.agents')))
+  assert.strictEqual(readPkg(dir).scripts, undefined)
+})
+
+test('a project without node_modules never has its committed skills removed', () => {
+  const dir = makeProject() // e.g. a fresh clone: committed skills present, install not yet run
+  writeManagedDir(dir, '.claude/skills', 'npm-skill-a')
+  const res = runCli(dir)
+  assert.strictEqual(res.status, 0)
+  assert.match(res.output, /run your package manager's install first/)
+  assert.ok(exists(path.join(dir, '.claude/skills/npm-skill-a/SKILL.md')))
 })
 
 test('re-runs are no-ops', () => {
@@ -78,8 +102,15 @@ test('re-runs are no-ops', () => {
   runCli(dir)
   const res = runCli(dir)
   assert.match(res.output, /\(2 up-to-date\)/)
-  const gitignore = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8')
-  assert.strictEqual(gitignore.split('**/skills/npm-*').length - 1, 1) // line not duplicated
+})
+
+test('updated skill packages refresh the committed copies', () => {
+  const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
+  runCli(dir)
+  installSkillPkg(dir, { name: 'skill-a', version: '2.0.0' })
+  const res = runCli(dir)
+  assert.match(res.output, /\(2 updated\)/)
+  assert.strictEqual(readMarker(dir, '.claude/skills', 'npm-skill-a').version, '2.0.0')
 })
 
 test('uninstalled skill packages get their entries removed', () => {
@@ -91,6 +122,40 @@ test('uninstalled skill packages get their entries removed', () => {
   assert.ok(!exists(path.join(dir, '.agents/skills/npm-skill-b')))
   assert.ok(exists(path.join(dir, '.claude/skills/npm-skill-a')))
   assert.match(res.output, /2 removed/)
+})
+
+test('legacy v0.1 links are replaced by committed copies', () => {
+  const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
+  makeDirLink(path.join(dir, 'node_modules', 'skill-a'), path.join(dir, '.claude/skills/npm-skill-a'))
+  const res = runCli(dir)
+  const entry = path.join(dir, '.claude/skills/npm-skill-a')
+  assert.ok(!isLink(entry) && fs.statSync(entry).isDirectory())
+  assert.match(skillMd(dir, '.claude/skills', 'npm-skill-a'), /test skill of skill-a/)
+  assert.match(res.output, /1 created/)
+})
+
+test('legacy v0.1 copy markers are recognized and refreshed to the new marker name', () => {
+  const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
+  writeManagedDir(dir, '.claude/skills', 'npm-skill-a', { version: '0.9.0', markerName: '.use-npm-skills-copy.json' })
+  runCli(dir)
+  assert.strictEqual(readMarker(dir, '.claude/skills', 'npm-skill-a').version, '1.0.0')
+  assert.ok(!exists(path.join(dir, '.claude/skills/npm-skill-a/.use-npm-skills-copy.json')))
+  assert.match(skillMd(dir, '.claude/skills', 'npm-skill-a'), /test skill of skill-a/)
+})
+
+test('removes the legacy v0.1 rule from .gitignore, preserving everything else', () => {
+  const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
+  writeFile(path.join(dir, '.gitignore'), 'node_modules/\n**/skills/npm-*\ndist/\n')
+  const res = runCli(dir)
+  assert.strictEqual(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), 'node_modules/\ndist/\n')
+  assert.match(res.output, /Removed the legacy use-npm-skills rule/)
+})
+
+test('deletes .gitignore when it only contained the legacy rule', () => {
+  const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
+  writeFile(path.join(dir, '.gitignore'), '**/skills/npm-*\n')
+  runCli(dir)
+  assert.ok(!exists(path.join(dir, '.gitignore')))
 })
 
 test('config: exclude skips (and removes) listed skill packages', () => {
@@ -117,18 +182,15 @@ test('config: skillsDirs overrides the target directories', () => {
   assert.match(skillMd(dir, 'custom-skills', 'npm-skill-a'), /test skill of skill-a/)
   assert.ok(!exists(path.join(dir, '.claude')))
   assert.ok(!exists(path.join(dir, '.agents')))
-  const gitignore = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8')
-  assert.ok(gitignore.includes('custom-skills/npm-*'))
-  assert.ok(!gitignore.includes('**/skills/npm-*'))
 })
 
 test('config: unknown options produce a warning', () => {
   const dir = makeProject({
-    rootPkg: { 'use-npm-skills': { postInstall: false } },
+    rootPkg: { 'use-npm-skills': { neverCopy: true } },
     skillPkgs: [{ name: 'skill-a' }],
   })
   const res = runCli(dir)
-  assert.match(res.output, /Unknown option package\.json#use-npm-skills\.postInstall/)
+  assert.match(res.output, /Unknown option package\.json#use-npm-skills\.neverCopy/)
 })
 
 test('syncs only into existing skills dirs when at least one exists', () => {
@@ -141,7 +203,7 @@ test('syncs only into existing skills dirs when at least one exists', () => {
 
 test('never overwrites an entry it does not manage', () => {
   const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
-  writeFile(path.join(dir, '.claude/skills/npm-skill-a/SKILL.md'), 'hand-written\n')
+  writeFile(path.join(dir, '.claude/skills/npm-skill-a/SKILL.md'), 'hand-written\n') // no marker
   const res = runCli(dir)
   assert.strictEqual(fs.readFileSync(path.join(dir, '.claude/skills/npm-skill-a/SKILL.md'), 'utf8'), 'hand-written\n')
   assert.match(res.output, /Not overwriting \.claude\/skills\/npm-skill-a/)
@@ -159,51 +221,6 @@ test('packages without a SKILL.md (or with several skills) are skipped with a wa
   assert.match(res.output, /Skipping installed package skill-none: no SKILL\.md found/)
   assert.match(res.output, /Skipping installed package skill-multi: it contains multiple skills/)
   assert.ok(!exists(path.join(dir, '.claude'))) // both skipped ⇒ zero skills ⇒ zero side effects
-})
-
-test('replaces a managed link that points at the wrong target', () => {
-  const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
-  const elsewhere = path.join(dir, 'somewhere')
-  fs.mkdirSync(elsewhere, { recursive: true })
-  fs.mkdirSync(path.join(dir, '.claude/skills'), { recursive: true })
-  makeDirLink(elsewhere, path.join(dir, '.claude/skills/npm-skill-a'))
-  runCli(dir)
-  assert.match(skillMd(dir, '.claude/skills', 'npm-skill-a'), /test skill of skill-a/)
-})
-
-test('falls back to copying when links cannot be created', () => {
-  const dir = makeProject({ skillPkgs: [{ name: 'skill-a' }] })
-  const env = { USE_NPM_SKILLS_TEST_DISABLE_LINKS: '1' }
-  const res1 = runCli(dir, [], env)
-  assert.match(res1.output, /2 copied/)
-  const entry = path.join(dir, '.claude/skills/npm-skill-a')
-  assert.ok(!isLink(entry) && fs.statSync(entry).isDirectory())
-  assert.match(skillMd(dir, '.claude/skills', 'npm-skill-a'), /test skill of skill-a/)
-  const marker = JSON.parse(fs.readFileSync(path.join(entry, '.use-npm-skills-copy.json'), 'utf8'))
-  assert.strictEqual(marker.package, 'skill-a')
-  assert.strictEqual(marker.version, '1.0.0')
-
-  // Same version ⇒ the copies are current, no churn.
-  const res2 = runCli(dir, [], env)
-  assert.match(res2.output, /\(2 up-to-date\)/)
-
-  // New version ⇒ the copies are refreshed.
-  installSkillPkg(dir, { name: 'skill-a', version: '2.0.0' })
-  const res3 = runCli(dir, [], env)
-  assert.match(res3.output, /2 copied/)
-  const marker2 = JSON.parse(fs.readFileSync(path.join(entry, '.use-npm-skills-copy.json'), 'utf8'))
-  assert.strictEqual(marker2.version, '2.0.0')
-})
-
-test('config: neverCopy skips instead of copying', () => {
-  const dir = makeProject({
-    rootPkg: { 'use-npm-skills': { neverCopy: true } },
-    skillPkgs: [{ name: 'skill-a' }],
-  })
-  const res = runCli(dir, [], { USE_NPM_SKILLS_TEST_DISABLE_LINKS: '1' })
-  assert.match(res.output, /Could not create a link/)
-  assert.match(res.output, /2 skipped/)
-  assert.ok(!exists(path.join(dir, '.claude/skills/npm-skill-a')))
 })
 
 test('Yarn PnP is unsupported: prints a message, does nothing, exits 0', () => {

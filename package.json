@@ -1,7 +1,7 @@
 {
   "name": "use-npm-skills",
-  "version": "0.1.0",
-  "description": "Install AI agent skills (SKILL.md) as npm packages — versioned by npm and your lockfile",
+  "version": "0.2.0",
+  "description": "Install AI agent skills (SKILL.md) as npm packages, committed into your repo — versioned and updated by npm",
   "keywords": [
     "skills",
     "agent-skills",

@@ -87,9 +87,7 @@ function findSkillPackages(ctx) {
   const nodeModulesDir = path.join(ctx.rootDir, 'node_modules')
   const byLinkName = new Map()
   for (const dirName of listPackageDirs(nodeModulesDir)) {
-    // Logical paths only — never fs.realpath()'d. On pnpm these are symlinks into the
-    // versioned .pnpm store; resolving them would bake in paths that dangle on upgrades.
-    const pkgDir = path.join(nodeModulesDir, dirName)
+    const pkgDir = path.join(nodeModulesDir, dirName) // on pnpm this is a symlink into the store — reading through it is fine
     const pkg = readJson(path.join(pkgDir, 'package.json'))
     if (!pkg || !dependsOnUs(pkg)) continue
     const name = typeof pkg.name === 'string' && pkg.name !== '' ? pkg.name : dirName
