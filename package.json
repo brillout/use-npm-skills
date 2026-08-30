@@ -1,0 +1,48 @@
+{
+  "name": "use-npm-skills",
+  "version": "0.1.0",
+  "description": "npm as the distribution channel for AI-agent skills (SKILL.md) — semver, lockfiles, and updates for skills.",
+  "type": "module",
+  "bin": {
+    "use-npm-skills": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brillout/use-npm-skills.git"
+  },
+  "homepage": "https://github.com/brillout/use-npm-skills",
+  "bugs": "https://github.com/brillout/use-npm-skills/issues",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "agent-skills",
+    "skill.md",
+    "ai-agents",
+    "claude",
+    "cursor",
+    "npm"
+  ],
+  "packageManager": "pnpm@10.33.0",
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
