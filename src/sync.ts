@@ -13,8 +13,10 @@ import { CONFIG_FILE, KEYWORD, UsageError, type Action, type SyncResult } from '
 export interface SyncOptions {
   cwd?: string
   force?: boolean
-  /** For tests — defaults to process.platform (Windows defaults to copies instead of symlinks). */
+  /** For tests — defaults to process.platform (on Windows the default mirror style depends on Git symlink support). */
   platform?: NodeJS.Platform
+  /** For tests — is Git symlink support available at the project root? Defaults to detecting it (consulted on Windows only). */
+  gitSymlinks?: (root: string) => boolean
   log?: Logger
   /** Called per locally-modified skill when --force is set. Default: overwrite (the non-TTY behavior). */
   confirmOverwrite?: (skillName: string, pkgName: string) => Promise<boolean> | boolean
@@ -56,7 +58,7 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
   }
 
   const targetDirs = discoverTargetDirs(root, config)
-  const analysis = analyzeStructure(root, targetDirs, platform)
+  const analysis = analyzeStructure(root, targetDirs, platform, options.gitSymlinks)
 
   if (force && options.onTamperedList) {
     const tampered = listTampered(active, analysis)
