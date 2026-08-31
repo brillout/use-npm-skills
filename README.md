@@ -6,10 +6,10 @@ Contents: [Using skills](#using-skills) · [Publishing a skill](#publishing-a-sk
 
 ## Using skills
 
-Install a skill package — any npm package with `use-npm-skills` in its keywords ([browse them all](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills)) — and run the tool:
+Install `use-npm-skills` and a skill package — any npm package with `use-npm-skills` in its keywords ([browse them all](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills)) — and run the tool:
 
 ```shell
-npm install --save-dev skill-awesome-memory
+npm install --save-dev use-npm-skills skill-awesome-memory
 npx use-npm-skills
 ```
 
@@ -132,7 +132,7 @@ One package ships one skill.
 Install your package into a scratch project straight from disk:
 
 ```shell
-npm install --save-dev ../skill-awesome-memory
+npm install --save-dev use-npm-skills ../skill-awesome-memory
 npx use-npm-skills
 ```
 
@@ -150,6 +150,9 @@ The full design rationale lives in [DECISIONS.md](./DECISIONS.md).
 
 **Why doesn't it run automatically on `npm install`?**
 Because package managers make that unreliable: pnpm and Bun block dependency postinstall scripts by default, npm doesn't re-fire them on updates, and nothing at all runs on uninstall. Automation that works half the time is worse than a command you can trust — so, like `prisma generate`, you run `npx use-npm-skills` explicitly. Bonus: a package with no scripts is one your supply-chain scanner and your security team don't need to worry about.
+
+**Why install `use-npm-skills` itself?**
+So `npx` runs your local copy: the tool that writes your skills is pinned by your lockfile like everything else — the whole team and CI sync with the same version, instead of `npx` prompting to download whatever the latest release happens to be.
 
 **Why commit the skills instead of gitignoring them?**
 An agent reading a fresh clone should see every skill without anyone running an install first.
