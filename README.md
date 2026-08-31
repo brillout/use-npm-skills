@@ -27,7 +27,10 @@ The skill is now a regular folder in your repo:
     └── source.json    ← marks the skill as managed by use-npm-skills
 ```
 
-Commit it. That's the point: the skill lives in your repo as plain files, so every teammate — and every agent reading a fresh clone — has it immediately, no install step required. The package in `node_modules` is just where updates come from.
+Commit it.
+
+> [!NOTE]
+> The skill is plain files in your repo: teammates and agents get it from a fresh clone, with no install step. The package in `node_modules` is only where updates come from.
 
 Works with npm, pnpm, Bun, and Yarn (with `node_modules`; Yarn PnP isn't supported). Requires Node 18+.
 
