@@ -32,9 +32,13 @@ Resolve project root → enumerate installed skill packages → determine target
   majority wins; tie ⇒ default.
 - Default pattern: real files in `.agents/skills/` (if it's not a target: first target
   alphabetically), per-skill **relative** symlinks in the other dirs.
-- Windows: no symlink support for now — where [Git symlink support is
-  unavailable](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201),
-  copies are the default instead (analysis still wins).
+- Windows: symlinks where [Git symlink support is
+  available](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201)
+  — effective `core.symlinks` resolves true (unset = disabled, Git for
+  Windows' default) **and** a probe symlink at the root succeeds (Developer
+  Mode/elevation); otherwise copies are the default. Checked only when the
+  default applies (analysis still wins). Any doubt ⇒ copies: a wrong
+  "available" breaks teammates' checkouts, a wrong "unavailable" just copies.
 
 ### Materialize each skill
 - The skill npm package ships its skill in one of two layouts: a root `SKILL.md`
@@ -83,5 +87,5 @@ Resolve project root → enumerate installed skill packages → determine target
   nothing for supply-chain scanners to flag.
 - Config `.use-npm-skills.json` (project root): `skillsDirs` (overrides list of
   `skills/` dir discovery), `exclude` (skip installed skill packages by name).
-- Out of scope (decided, not forgotten): Yarn PnP · nested skills dirs · Windows
-  symlinks · multi-skill packages.
+- Out of scope (decided, not forgotten): Yarn PnP · nested skills dirs ·
+  multi-skill packages.

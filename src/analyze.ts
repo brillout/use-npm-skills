@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { isFile, lstatType, readdirSafe, realpathSafe, relDisplay } from './fsUtils.js'
+import { detectGitSymlinkSupport } from './gitSymlinks.js'
 import { DEFAULT_SKILLS_DIR, type Analysis, type MirrorStyle } from './types.js'
 
 interface SkillInstance {
@@ -14,10 +15,15 @@ interface SkillInstance {
  * vote) → duplicated skills without symlinks (copy vote) → tie ⇒ default.
  *
  * Default: real files in `.agents/skills/` (or the first target
- * alphabetically), per-skill relative symlinks elsewhere — except on Windows,
- * where copies are the default (Git symlink support is unreliable there).
+ * alphabetically), per-skill relative symlinks elsewhere — except on Windows
+ * without Git symlink support, where copies are the default.
  */
-export function analyzeStructure(root: string, targetDirs: string[], platform: NodeJS.Platform): Analysis {
+export function analyzeStructure(
+  root: string,
+  targetDirs: string[],
+  platform: NodeJS.Platform,
+  gitSymlinks: (root: string) => boolean = detectGitSymlinkSupport,
+): Analysis {
   // Collapse dir-level symlinks: group targets by physical identity.
   const groups = new Map<string, { dir: string; isLink: boolean }[]>()
   for (const dir of targetDirs) {
@@ -75,9 +81,11 @@ export function analyzeStructure(root: string, targetDirs: string[], platform: N
     }
   }
 
-  const defaultStyle: MirrorStyle = platform === 'win32' ? 'copy' : 'symlink'
+  // Consulted only when the vote ties (the default applies): on Windows,
+  // symlinks are the default only where Git symlink support is available.
+  const defaultStyle = (): MirrorStyle => (platform === 'win32' && !gitSymlinks(root) ? 'copy' : 'symlink')
   const style: MirrorStyle =
-    styleVotes.symlink > styleVotes.copy ? 'symlink' : styleVotes.copy > styleVotes.symlink ? 'copy' : defaultStyle
+    styleVotes.symlink > styleVotes.copy ? 'symlink' : styleVotes.copy > styleVotes.symlink ? 'copy' : defaultStyle()
 
   const defaultDir = path.join(root, ...DEFAULT_SKILLS_DIR.split('/'))
   const defaultPrimary = physicalDirs.includes(defaultDir) ? defaultDir : physicalDirs[0]

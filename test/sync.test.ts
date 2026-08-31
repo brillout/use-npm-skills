@@ -284,15 +284,40 @@ describe('structure analysis wins over the default', () => {
     expect(readSource(j(root, '.claude', 'skills', 's')).package).toBe('p')
   })
 
-  test('on Windows, copies are the default', async () => {
+  test('on Windows without Git symlink support, copies are the default', async () => {
     const root = makeProject({
       node_modules: { p: skillPkgFile('p', 's') },
       '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
       '.claude': { skills: { u2: { 'SKILL.md': skillMd('u2') } } },
     })
-    await run(root, { platform: 'win32' })
+    await run(root, { platform: 'win32', gitSymlinks: () => false })
     expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
     expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
+  })
+
+  test('on Windows with Git symlink support, symlinks are the default', async () => {
+    const root = makeProject({
+      node_modules: { p: skillPkgFile('p', 's') },
+      '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
+      '.claude': { skills: { u2: { 'SKILL.md': skillMd('u2') } } },
+    })
+    await run(root, { platform: 'win32', gitSymlinks: () => true })
+    expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
+    expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(true)
+    expect(linkTarget(j(root, '.claude', 'skills', 's'))).toBe('../../.agents/skills/s')
+  })
+
+  test('on Windows, an existing symlink pattern wins even without Git symlink support', async () => {
+    const root = makeProject({
+      node_modules: { p: skillPkgFile('p', 's') },
+      '.claude': { skills: { existing: { 'SKILL.md': skillMd('existing') } } },
+      '.agents': { skills: {} },
+    })
+    fs.mkdirSync(j(root, '.agents', 'skills'), { recursive: true })
+    fs.symlinkSync(j('..', '..', '.claude', 'skills', 'existing'), j(root, '.agents', 'skills', 'existing'))
+    await run(root, { platform: 'win32', gitSymlinks: () => false })
+    expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
+    expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(true)
   })
 
   test('a target added later gets mirror links on the next run', async () => {

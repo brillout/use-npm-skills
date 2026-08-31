@@ -10,7 +10,7 @@ Decides how skills are laid out across multiple target skills directories: which
 
 - **Directory-level symlinks collapse** - target directories that are symlinks to the same physical directory count as one; there is nothing to mirror between them.
 - **The existing structure always wins** - existing per-skill symlinks or duplicated copies determine the mirror style and primary directory [1] by majority vote.
-- **Default pattern** - real files in `.agents/skills/` (or the first target alphabetically), relative symlinks elsewhere; on Windows, copies instead of symlinks.
+- **Default pattern** - real files in `.agents/skills/` (or the first target alphabetically), relative symlinks elsewhere; on Windows, copies instead of symlinks unless Git symlink support is available.
 
 ## Business logic
 
@@ -42,11 +42,11 @@ With several target skills directories and no existing structure to follow, the 
 
 #### Business logic
 
-Default: real files in `.agents/skills/` — or, if `.agents/skills/` is not a target, the first target alphabetically — and per-skill relative symlinks in every other target. On Windows the default mirror style is copies instead of symlinks (the existing structure still wins).
+Default: real files in `.agents/skills/` — or, if `.agents/skills/` is not a target, the first target alphabetically — and per-skill relative symlinks in every other target. On Windows the default mirror style is copies instead of symlinks — unless Git symlink support is available (`gitSymlinks.SPEC.md`), in which case symlinks are the default like on every other platform. Availability is only checked when the default actually applies (the existing structure still wins).
 
 #### Rationale
 
-Relative symlinks survive moving or cloning the repository to another path. Windows defaults to copies because Git's symlink support there is frequently unavailable; per-skill (rather than directory-level) mirroring keeps user-authored skills possible in every directory.
+Relative symlinks survive moving or cloning the repository to another path. Windows defaults to copies because Git's symlink support there is disabled by default and frequently unavailable — but a machine set up for it gets the same symlink pattern as every other platform. Per-skill (rather than directory-level) mirroring keeps user-authored skills possible in every directory.
 
 ## Before modifying/creating SPEC.md files
 

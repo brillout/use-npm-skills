@@ -1,5 +1,10 @@
-import { describe, expect, test } from 'vitest'
+import { execFileSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 import { isValidSkillName, parseFrontmatterName } from '../src/frontmatter.js'
+import { detectGitSymlinkSupport } from '../src/gitSymlinks.js'
 import { hashFileMap } from '../src/hash.js'
 
 describe('parseFrontmatterName', () => {
@@ -41,6 +46,37 @@ describe('isValidSkillName', () => {
     expect(isValidSkillName('..')).toBe(false)
     expect(isValidSkillName('')).toBe(false)
     expect(isValidSkillName('x'.repeat(65))).toBe(false)
+  })
+})
+
+describe('detectGitSymlinkSupport', () => {
+  // Hermetic: point Git's global/system config at a nonexistent file so only
+  // the throwaway repo's local config decides.
+  beforeAll(() => {
+    const noConfig = path.join(os.tmpdir(), 'use-npm-skills-no-gitconfig')
+    vi.stubEnv('GIT_CONFIG_GLOBAL', noConfig)
+    vi.stubEnv('GIT_CONFIG_SYSTEM', noConfig)
+  })
+  afterAll(() => {
+    vi.unstubAllEnvs()
+  })
+
+  const gitRepo = (coreSymlinks?: 'true' | 'false') => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'use-npm-skills-git-')))
+    execFileSync('git', ['init', '-q'], { cwd: root })
+    if (coreSymlinks) execFileSync('git', ['config', 'core.symlinks', coreSymlinks], { cwd: root })
+    return root
+  }
+
+  test('unavailable when core.symlinks is disabled', () => {
+    expect(detectGitSymlinkSupport(gitRepo('false'))).toBe(false)
+  })
+  test('unavailable when core.symlinks is unset', () => {
+    expect(detectGitSymlinkSupport(gitRepo())).toBe(false)
+  })
+  // On Windows the probe legitimately depends on the machine (Developer Mode).
+  test.skipIf(process.platform === 'win32')('available when core.symlinks is enabled and symlinks can be created', () => {
+    expect(detectGitSymlinkSupport(gitRepo('true'))).toBe(true)
   })
 })
 

@@ -63,7 +63,7 @@ After you remove (or `exclude`) the package, the edited skill stays in your repo
 
 - **Your repo already has skills dirs?** They're detected and used — `skills/` at the root, or any `*/skills/` one level down that contains at least one skill: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, and whatever the next agent brings.
 - **No skills dir yet?** `.agents/skills/` is created. If your agent only reads its own dir (say, `.claude/skills/`), list both in the [configuration](#configuration).
-- **Several skills dirs?** Each skill is written once and mirrored into the others with relative symlinks (plain copies on Windows). If your repo already mirrors skills differently — one dir symlinked to another, or duplicated copies — your existing layout is followed.
+- **Several skills dirs?** Each skill is written once and mirrored into the others with relative symlinks (plain copies on Windows machines without [Git symlink support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201)). If your repo already mirrors skills differently — one dir symlinked to another, or duplicated copies — your existing layout is followed.
 - **Monorepo?** Skills are installed at the workspace root, next to the lockfile: skills apply repo-wide.
 
 ### Configuration
@@ -161,7 +161,7 @@ An agent reading a fresh clone should see every skill without anyone running an 
 The first package alphabetically wins; the other is skipped with a warning.
 
 **Windows?**
-Supported — skills are copied into each skills dir instead of symlinked, since Git's symlink support on Windows is unreliable.
+Supported. When [Git symlink support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) is available — `core.symlinks` enabled and symlink creation permitted (e.g. Developer Mode) — skills are mirrored with symlinks like on any other platform. Otherwise they're copied into each skills dir instead.
 
 **Yarn PnP?**
 Not supported (there's no `node_modules` to read skills from) — see [#7](https://github.com/brillout/use-npm-skills/issues/7).
