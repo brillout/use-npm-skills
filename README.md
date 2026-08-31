@@ -32,7 +32,7 @@ Commit it.
 > [!NOTE]
 > The skill is plain files in your repo: teammates and agents get it from a fresh clone, with no install step. The package in `node_modules` is only where updates come from.
 
-Works with npm, pnpm, Bun, and Yarn (with `node_modules`; Yarn PnP isn't supported). Requires Node 18+.
+Requires Node 18+.
 
 ### Updating and removing skills
 
