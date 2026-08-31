@@ -161,7 +161,7 @@ The first package alphabetically wins; the other is skipped with a warning.
 Supported — skills are copied into each skills dir instead of symlinked, since Git's symlink support on Windows is unreliable.
 
 **Yarn PnP?**
-Not supported (there's no `node_modules` to read skills from).
+Not supported (there's no `node_modules` to read skills from) — see [#7](https://github.com/brillout/use-npm-skills/issues/7).
 
 ## License
 
