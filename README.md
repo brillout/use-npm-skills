@@ -1,42 +1,74 @@
 # `use-npm-skills`
 
-npm as the distribution channel for AI-agent skills (the [agentskills.io](https://agentskills.io) `SKILL.md` convention).
+Install AI-agent [skills](https://agentskills.io) with npm. Instead of copy-pasting `SKILL.md` files into your repo, skills become regular dependencies: versioned, pinned by your lockfile, updated with `npm update`, published and maintained like any package.
 
-Today skills are distributed by copy-paste: installers clone files from GitHub into your repo, updates are manual, and nothing ties the skill you have to a version anyone can name. npm already solves all of this for code — semver, lockfiles, updates, deprecations. Skills get the same treatment:
-
-- **Authors** publish a skill as a normal npm package and maintain it like one.
-- **Users** get skills like any dependency: install the package, run `npx use-npm-skills`, and the skill shows up where their agents look for skills (`.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, …). Upgrading a skill is `npm update` + re-run; the lockfile pins exactly which skill content the whole team has.
+Contents: [Using skills](#using-skills) · [Publishing a skill](#publishing-a-skill) · [How it works](#how-it-works) · [FAQ](#faq)
 
 ## Using skills
 
-```bash
-npm install -D some-skill-package   # any package with "use-npm-skills" in its keywords
-npx use-npm-skills                  # materialize skills into your skills dir(s)
-git add -A && git commit            # skills are committed, on purpose (see below)
+Install a skill package — any npm package with `use-npm-skills` in its keywords ([browse them all](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills)) — and run the tool:
+
+```shell
+npm install --save-dev skill-awesome-memory
+npx use-npm-skills
 ```
 
-Run `npx use-npm-skills` again after adding, updating, or removing skill packages — the tool deliberately installs no lifecycle hooks (the `prisma generate` model; see [FAQ](#faq)).
+```
++ awesome-memory (skill-awesome-memory@1.0.0) → .agents/skills
+1 skill(s) in sync across .agents/skills
+```
 
-Discover published skills on npm: [`keywords:use-npm-skills`](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills).
+The skill is now a regular folder in your repo:
 
-### Where skills end up
+```
+.agents/skills/
+└── awesome-memory/
+    ├── SKILL.md
+    └── source.json    ← marks the skill as managed by use-npm-skills
+```
 
-- If your repo already has skills dirs (`<root>/skills/` or `<root>/<dir>/skills/`, e.g. `.claude/skills/` — any dir containing at least one skill), those are the targets.
-- Otherwise `.agents/skills/` is created and used.
-- With several targets, real files go into one dir (`.agents/skills/` by default) and the others get per-skill relative symlinks — unless your repo already mirrors skills differently (dir-level symlink, per-skill symlinks elsewhere, or plain copies): the existing structure always wins. On Windows, copies are the default.
-- In monorepos, skills are installed at the workspace root (the nearest lockfile) — skills apply repo-wide.
+Commit it.
 
-Materialized skills are real, committed files: a fresh clone is skill-aware before anything is installed. Each materialized skill carries a `source.json` (`package`, `version`, `source`, `hash`) marking it as tool-owned; skills without it are yours and are never touched.
+> [!NOTE]
+> The skill is plain files in your repo: teammates and agents get it from a fresh clone, with no install step. The package in `node_modules` is only where updates come from.
 
-### Local edits are protected
+Requires Node 18+.
 
-If you edit a materialized skill, `use-npm-skills` notices (content hash) and leaves it alone, telling you how to keep your changes — remove the package or [`exclude`](#configuration) it (the skill is then adopted as yours) — or overwrite them with `npx use-npm-skills --force` (asks per skill on a TTY).
+### Updating and removing skills
 
-When you uninstall a skill package, the next run removes its skill — unless you modified it, in which case only the `source.json` is removed and your version stays, now user-authored.
+`use-npm-skills` never runs by itself — no postinstall hooks, on purpose ([why?](#faq)). Whenever you add, update, or remove skill packages, run it again:
+
+```shell
+npm update skill-awesome-memory    && npx use-npm-skills   # update a skill
+npm uninstall skill-awesome-memory && npx use-npm-skills   # remove a skill (its folder is cleaned up too)
+```
+
+Running it extra times is always safe — when everything is in sync, it does nothing.
+
+### Your own skills, your own edits
+
+Skills you wrote yourself (any skill folder without a `source.json`) are never touched.
+
+If you edit an *installed* skill, `use-npm-skills` notices and refuses to overwrite you:
+
+```
+Warning: skill `awesome-memory` was modified locally — to keep your changes, remove
+`skill-awesome-memory` or add it to `"exclude"` in `.use-npm-skills.json`; or run
+`npx use-npm-skills --force` to override your changes
+```
+
+After you remove (or `exclude`) the package, the edited skill stays in your repo and becomes an ordinary skill of your own. And `--force` asks per skill before discarding anything.
+
+### Where skills go
+
+- **Your repo already has skills dirs?** They're detected and used — `skills/` at the root, or any `*/skills/` one level down that contains at least one skill: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, and whatever the next agent brings.
+- **No skills dir yet?** `.agents/skills/` is created. If your agent only reads its own dir (say, `.claude/skills/`), list both in the [configuration](#configuration).
+- **Several skills dirs?** Each skill is written once and mirrored into the others with relative symlinks (plain copies on Windows). If your repo already mirrors skills differently — one dir symlinked to another, or duplicated copies — your existing layout is followed.
+- **Monorepo?** Skills are installed at the workspace root, next to the lockfile: skills apply repo-wide.
 
 ### Configuration
 
-`.use-npm-skills.json` at the project root (optional):
+Optional — `.use-npm-skills.json` at the project root:
 
 ```json
 {
@@ -45,40 +77,92 @@ When you uninstall a skill package, the next run removes its skill — unless yo
 }
 ```
 
-- `skillsDirs` — override skills-dir discovery.
-- `exclude` — skip installed skill packages by name.
+- `skillsDirs`: use exactly these dirs instead of auto-detection.
+- `exclude`: ignore an installed skill package (its skill is removed — or kept as yours if you edited it).
 
 ## Publishing a skill
 
-A skill package is a normal npm package with:
+A skill package is a normal npm package. The smallest one is two files:
 
-1. `"use-npm-skills"` in `package.json` `keywords` — the only marker (it also makes your skill discoverable via npm keyword search), and
-2. one of two layouts (one package = one skill):
-   - a root `SKILL.md` — for a single-file skill, or
-   - a `skill/` directory — its full contents are materialized (`skill/SKILL.md` plus any reference files, scripts, …).
+```
+skill-awesome-memory/
+├── package.json
+└── SKILL.md
+```
 
-```jsonc
-// package.json
+```json
 {
-  "name": "my-skill-package",
+  "name": "skill-awesome-memory",
   "version": "1.0.0",
-  "keywords": ["use-npm-skills"],
-  "files": ["skill"]
+  "keywords": ["use-npm-skills"]
 }
 ```
 
-The `SKILL.md` frontmatter `name` (lowercase letters, digits, hyphens) names the materialized directory, per the agentskills.io spec. Version, deprecate, and publish like any package.
+```md
+---
+name: awesome-memory
+description: Maintain a MEMORY.md of project learnings across sessions.
+---
+
+When you learn something about this project that isn't written down anywhere, ...
+```
+
+That's it — `npm publish`. Two things matter:
+
+- The **`use-npm-skills` keyword** is what marks your package as a skill package — and lists it in the [npm keyword search](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills) where users go looking for skills.
+- The **frontmatter `name`** becomes the skill's folder name in the user's repo. Lowercase letters, digits, and hyphens.
+
+### Skills with more files
+
+If your skill ships more than a `SKILL.md` — reference docs, scripts, templates — put everything in a `skill/` directory; its full contents are installed:
+
+```
+skill-awesome-memory/
+├── package.json          ← add "files": ["skill"] to keep the package lean
+└── skill/
+    ├── SKILL.md
+    ├── reference.md
+    └── templates/MEMORY.md
+```
+
+One package ships one skill.
+
+### Try it before publishing
+
+Install your package into a scratch project straight from disk:
+
+```shell
+npm install --save-dev ../skill-awesome-memory
+npx use-npm-skills
+```
+
+## How it works
+
+- Installed skills are real, committed files. Nothing is gitignored, and nothing in your repo points into `node_modules` — a fresh clone is fully skill-aware before anyone runs anything.
+- Every installed skill carries a `source.json`: which package and version it came from, plus a content hash. The hash is how local edits are detected (line-ending changes from Git's `autocrlf` don't count). No `source.json` = your skill, hands off.
+- Symlinks are only ever created between skills dirs — relative, so they survive cloning to any path.
+- The tool has zero install hooks and zero runtime dependencies.
+- The exit code is non-zero when locally-modified skills were found — handy in CI to catch drift.
+
+The full design rationale lives in [DECISIONS.md](./DECISIONS.md).
 
 ## FAQ
 
-**Why no `postinstall` hook?**
-Package-manager lifecycle events are structurally unreliable: dependency postinstalls are blocked by default on pnpm and Bun and don't re-run on skill updates on npm; no package manager fires anything on uninstall; targeted `npm update <pkg>` / `npm install <pkg>` fire no root hooks either. Half-working automation is worse than none — so the tool is fully explicit, like `prisma generate`. Being script-free is also a trust feature: no `approve-builds` prompts, nothing for supply-chain scanners to flag.
+**Why doesn't it run automatically on `npm install`?**
+Because package managers make that unreliable: pnpm and Bun block dependency postinstall scripts by default, npm doesn't re-fire them on updates, and nothing at all runs on uninstall. Automation that works half the time is worse than a command you can trust — so, like `prisma generate`, you run `npx use-npm-skills` explicitly. Bonus: a package with no scripts is one your supply-chain scanner and your security team don't need to worry about.
 
 **Why commit the skills instead of gitignoring them?**
-Repos must be skill-aware at rest: an agent reading a fresh clone sees every skill before anything is installed. This is also why skills are never symlinked into `node_modules`.
+An agent reading a fresh clone should see every skill without anyone running an install first.
 
-**Exit codes** — `0`: success; non-zero: locally-modified skills were found (and left untouched), or an error occurred.
+**What if two installed packages provide a skill with the same name?**
+The first package alphabetically wins; the other is skipped with a warning.
 
-**Out of scope** (decided): Yarn PnP (detected, reported, exits 0) · nested skills dirs (`apps/web/.claude/skills/`) · Windows symlinks (copies instead) · multi-skill packages.
+**Windows?**
+Supported — skills are copied into each skills dir instead of symlinked, since Git's symlink support on Windows is unreliable.
 
-See [GOAL.md](./GOAL.md) and [DECISIONS.md](./DECISIONS.md) for the full design.
+**Yarn PnP?**
+Not supported (there's no `node_modules` to read skills from) — see [#7](https://github.com/brillout/use-npm-skills/issues/7).
+
+## License
+
+[MIT](./LICENSE)
