@@ -1,29 +1,20 @@
 # `use-npm-skills`
 
-Install AI-agent skills with npm.
-
-A [skill](https://agentskills.io) is a folder with a `SKILL.md` that teaches an AI agent — Claude Code, Cursor, and others — how to do a specific job well: review code the way your team does, write your changelog, drive your deploy tooling.
-
-Skills are usually installed by copy-paste: a script clones files into your repo, and from then on they're on their own — updating means re-copying, and nothing tells you (or your teammates) which version you actually have. npm solved all of this for code a long time ago. `use-npm-skills` lets skills ride along:
-
-- **Install** a skill like any dependency — it shows up where your agents look for skills.
-- **Update** skills with `npm update`, like everything else.
-- **Pin** exact skill content for the whole team, through your lockfile.
-- **Publish** a skill like any npm package: versions, ownership, deprecation — all included.
+Install AI-agent [skills](https://agentskills.io) with npm. Instead of copy-pasting `SKILL.md` files into your repo, skills become regular dependencies: versioned, pinned by your lockfile, updated with `npm update`, published and maintained like any package.
 
 Contents: [Using skills](#using-skills) · [Publishing a skill](#publishing-a-skill) · [How it works](#how-it-works) · [FAQ](#faq)
 
 ## Using skills
 
-Grab a skill package from npm — any package with `use-npm-skills` in its keywords ([browse them all](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills)) — and run the tool:
+Install a skill package — any npm package with `use-npm-skills` in its keywords ([browse them all](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills)) — and run the tool:
 
 ```shell
-npm install --save-dev changelog-skill
+npm install --save-dev skill-memory
 npx use-npm-skills
 ```
 
 ```
-+ changelog (changelog-skill@2.0.0) → .agents/skills
++ memory (skill-memory@1.0.0) → .agents/skills
 1 skill(s) in sync across .agents/skills
 ```
 
@@ -31,7 +22,7 @@ The skill is now a regular folder in your repo:
 
 ```
 .agents/skills/
-└── changelog/
+└── memory/
     ├── SKILL.md
     └── source.json    ← marks the skill as managed by use-npm-skills
 ```
@@ -45,8 +36,8 @@ Works with npm, pnpm, Bun, and Yarn (with `node_modules`; Yarn PnP isn't support
 `use-npm-skills` never runs by itself — no postinstall hooks, on purpose ([why?](#faq)). Whenever you add, update, or remove skill packages, run it again:
 
 ```shell
-npm update changelog-skill    && npx use-npm-skills   # update a skill
-npm uninstall changelog-skill && npx use-npm-skills   # remove a skill (its folder is cleaned up too)
+npm update skill-memory    && npx use-npm-skills   # update a skill
+npm uninstall skill-memory && npx use-npm-skills   # remove a skill (its folder is cleaned up too)
 ```
 
 Running it extra times is always safe — when everything is in sync, it does nothing.
@@ -58,8 +49,8 @@ Skills you wrote yourself (any skill folder without a `source.json`) are never t
 If you edit an *installed* skill, `use-npm-skills` notices and refuses to overwrite you:
 
 ```
-Warning: skill `changelog` was modified locally — to keep your changes, remove
-`changelog-skill` or add it to `"exclude"` in `.use-npm-skills.json`; or run
+Warning: skill `memory` was modified locally — to keep your changes, remove
+`skill-memory` or add it to `"exclude"` in `.use-npm-skills.json`; or run
 `npx use-npm-skills --force` to override your changes
 ```
 
@@ -93,14 +84,14 @@ For the CLI reference: `npx use-npm-skills --help`.
 A skill package is a normal npm package. The smallest one is two files:
 
 ```
-my-changelog-skill/
+skill-memory/
 ├── package.json
 └── SKILL.md
 ```
 
 ```json
 {
-  "name": "my-changelog-skill",
+  "name": "skill-memory",
   "version": "1.0.0",
   "keywords": ["use-npm-skills"]
 }
@@ -108,11 +99,11 @@ my-changelog-skill/
 
 ```md
 ---
-name: changelog
-description: How to write changelog entries this project's way.
+name: memory
+description: Maintain a MEMORY.md of project learnings across sessions.
 ---
 
-When asked to update the changelog, ...
+When you learn something about this project that isn't written down anywhere, ...
 ```
 
 That's it — `npm publish`, and anyone can install your skill. Two things matter:
@@ -125,12 +116,12 @@ That's it — `npm publish`, and anyone can install your skill. Two things matte
 If your skill ships more than a `SKILL.md` — reference docs, scripts, templates — put everything in a `skill/` directory; its full contents are installed:
 
 ```
-my-changelog-skill/
+skill-memory/
 ├── package.json          ← add "files": ["skill"] to keep the package lean
 └── skill/
     ├── SKILL.md
     ├── reference.md
-    └── examples/good-entry.md
+    └── templates/MEMORY.md
 ```
 
 One package ships one skill. Publishing several skills = publishing several packages.
@@ -140,13 +131,13 @@ One package ships one skill. Publishing several skills = publishing several pack
 Install your package into a scratch project straight from disk:
 
 ```shell
-npm install --save-dev ../my-changelog-skill
+npm install --save-dev ../skill-memory
 npx use-npm-skills
 ```
 
 ### Maintaining a skill
 
-Exactly like maintaining a package — because it is one. Ship fixes as patch releases and breaking rewrites as majors; users get them with `npm update`, see them in `npm outdated`, and their lockfile records precisely which version of your skill the whole team runs. Retiring a skill is `npm deprecate`.
+Like maintaining any package, because it is one: semver, `npm deprecate`, the works. Users pick up your releases with `npm update` + re-run, and their lockfile records exactly which version of your skill the whole team runs.
 
 ## How it works
 
