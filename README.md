@@ -9,12 +9,12 @@ Contents: [Using skills](#using-skills) · [Publishing a skill](#publishing-a-sk
 Install a skill package — any npm package with `use-npm-skills` in its keywords ([browse them all](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills)) — and run the tool:
 
 ```shell
-npm install --save-dev skill-memory
+npm install --save-dev skill-awesome-memory
 npx use-npm-skills
 ```
 
 ```
-+ memory (skill-memory@1.0.0) → .agents/skills
++ memory (skill-awesome-memory@1.0.0) → .agents/skills
 1 skill(s) in sync across .agents/skills
 ```
 
@@ -36,8 +36,8 @@ Works with npm, pnpm, Bun, and Yarn (with `node_modules`; Yarn PnP isn't support
 `use-npm-skills` never runs by itself — no postinstall hooks, on purpose ([why?](#faq)). Whenever you add, update, or remove skill packages, run it again:
 
 ```shell
-npm update skill-memory    && npx use-npm-skills   # update a skill
-npm uninstall skill-memory && npx use-npm-skills   # remove a skill (its folder is cleaned up too)
+npm update skill-awesome-memory    && npx use-npm-skills   # update a skill
+npm uninstall skill-awesome-memory && npx use-npm-skills   # remove a skill (its folder is cleaned up too)
 ```
 
 Running it extra times is always safe — when everything is in sync, it does nothing.
@@ -50,7 +50,7 @@ If you edit an *installed* skill, `use-npm-skills` notices and refuses to overwr
 
 ```
 Warning: skill `memory` was modified locally — to keep your changes, remove
-`skill-memory` or add it to `"exclude"` in `.use-npm-skills.json`; or run
+`skill-awesome-memory` or add it to `"exclude"` in `.use-npm-skills.json`; or run
 `npx use-npm-skills --force` to override your changes
 ```
 
@@ -84,14 +84,14 @@ For the CLI reference: `npx use-npm-skills --help`.
 A skill package is a normal npm package. The smallest one is two files:
 
 ```
-skill-memory/
+skill-awesome-memory/
 ├── package.json
 └── SKILL.md
 ```
 
 ```json
 {
-  "name": "skill-memory",
+  "name": "skill-awesome-memory",
   "version": "1.0.0",
   "keywords": ["use-npm-skills"]
 }
@@ -116,7 +116,7 @@ That's it — `npm publish`, and anyone can install your skill. Two things matte
 If your skill ships more than a `SKILL.md` — reference docs, scripts, templates — put everything in a `skill/` directory; its full contents are installed:
 
 ```
-skill-memory/
+skill-awesome-memory/
 ├── package.json          ← add "files": ["skill"] to keep the package lean
 └── skill/
     ├── SKILL.md
@@ -131,7 +131,7 @@ One package ships one skill. Publishing several skills = publishing several pack
 Install your package into a scratch project straight from disk:
 
 ```shell
-npm install --save-dev ../skill-memory
+npm install --save-dev ../skill-awesome-memory
 npx use-npm-skills
 ```
 
