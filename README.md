@@ -14,7 +14,7 @@ npx use-npm-skills
 ```
 
 ```
-+ memory (skill-awesome-memory@1.0.0) → .agents/skills
++ awesome-memory (skill-awesome-memory@1.0.0) → .agents/skills
 1 skill(s) in sync across .agents/skills
 ```
 
@@ -22,7 +22,7 @@ The skill is now a regular folder in your repo:
 
 ```
 .agents/skills/
-└── memory/
+└── awesome-memory/
     ├── SKILL.md
     └── source.json    ← marks the skill as managed by use-npm-skills
 ```
@@ -52,7 +52,7 @@ Skills you wrote yourself (any skill folder without a `source.json`) are never t
 If you edit an *installed* skill, `use-npm-skills` notices and refuses to overwrite you:
 
 ```
-Warning: skill `memory` was modified locally — to keep your changes, remove
+Warning: skill `awesome-memory` was modified locally — to keep your changes, remove
 `skill-awesome-memory` or add it to `"exclude"` in `.use-npm-skills.json`; or run
 `npx use-npm-skills --force` to override your changes
 ```
@@ -102,7 +102,7 @@ skill-awesome-memory/
 
 ```md
 ---
-name: memory
+name: awesome-memory
 description: Maintain a MEMORY.md of project learnings across sessions.
 ---
 
