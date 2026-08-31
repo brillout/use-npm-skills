@@ -57,7 +57,7 @@ Warning: skill `awesome-memory` was modified locally — to keep your changes, r
 `npx use-npm-skills --force` to override your changes
 ```
 
-Both keep-my-changes routes do what they promise: after you remove (or `exclude`) the package, the edited skill stays in your repo and becomes an ordinary skill of your own. And `--force` asks per skill before discarding anything.
+After you remove (or `exclude`) the package, the edited skill stays in your repo and becomes an ordinary skill of your own. And `--force` asks per skill before discarding anything.
 
 ### Where skills go
 
@@ -79,8 +79,6 @@ Optional — `.use-npm-skills.json` at the project root:
 
 - `skillsDirs`: use exactly these dirs instead of auto-detection.
 - `exclude`: ignore an installed skill package (its skill is removed — or kept as yours if you edited it).
-
-For the CLI reference: `npx use-npm-skills --help`.
 
 ## Publishing a skill
 
@@ -109,7 +107,7 @@ description: Maintain a MEMORY.md of project learnings across sessions.
 When you learn something about this project that isn't written down anywhere, ...
 ```
 
-That's it — `npm publish`, and anyone can install your skill. Two things matter:
+That's it — `npm publish`. Two things matter:
 
 - The **`use-npm-skills` keyword** is what marks your package as a skill package — and lists it in the [npm keyword search](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills) where users go looking for skills.
 - The **frontmatter `name`** becomes the skill's folder name in the user's repo. Lowercase letters, digits, and hyphens.
@@ -127,7 +125,7 @@ skill-awesome-memory/
     └── templates/MEMORY.md
 ```
 
-One package ships one skill. Publishing several skills = publishing several packages.
+One package ships one skill.
 
 ### Try it before publishing
 
@@ -138,18 +136,12 @@ npm install --save-dev ../skill-awesome-memory
 npx use-npm-skills
 ```
 
-### Maintaining a skill
-
-Like maintaining any package, because it is one: semver, `npm deprecate`, the works. Users pick up your releases with `npm update` + re-run, and their lockfile records exactly which version of your skill the whole team runs.
-
 ## How it works
-
-The short version — enough to trust it with your repo:
 
 - Installed skills are real, committed files. Nothing is gitignored, and nothing in your repo points into `node_modules` — a fresh clone is fully skill-aware before anyone runs anything.
 - Every installed skill carries a `source.json`: which package and version it came from, plus a content hash. The hash is how local edits are detected (line-ending changes from Git's `autocrlf` don't count). No `source.json` = your skill, hands off.
 - Symlinks are only ever created between skills dirs — relative, so they survive cloning to any path.
-- The tool has zero install hooks and zero runtime dependencies. What you run is what happens.
+- The tool has zero install hooks and zero runtime dependencies.
 - The exit code is non-zero when locally-modified skills were found — handy in CI to catch drift.
 
 The full design rationale lives in [DECISIONS.md](./DECISIONS.md).
@@ -160,7 +152,7 @@ The full design rationale lives in [DECISIONS.md](./DECISIONS.md).
 Because package managers make that unreliable: pnpm and Bun block dependency postinstall scripts by default, npm doesn't re-fire them on updates, and nothing at all runs on uninstall. Automation that works half the time is worse than a command you can trust — so, like `prisma generate`, you run `npx use-npm-skills` explicitly. Bonus: a package with no scripts is one your supply-chain scanner and your security team don't need to worry about.
 
 **Why commit the skills instead of gitignoring them?**
-An agent reading a fresh clone should see every skill without anyone running an install first. Your repo stays fully self-describing.
+An agent reading a fresh clone should see every skill without anyone running an install first.
 
 **What if two installed packages provide a skill with the same name?**
 The first package alphabetically wins; the other is skipped with a warning.
@@ -169,7 +161,7 @@ The first package alphabetically wins; the other is skipped with a warning.
 Supported — skills are copied into each skills dir instead of symlinked, since Git's symlink support on Windows is unreliable.
 
 **Yarn PnP?**
-Not supported (there's no `node_modules` to read skills from). The tool detects it, says so, and exits cleanly.
+Not supported (there's no `node_modules` to read skills from).
 
 ## License
 
