@@ -45,22 +45,18 @@ export function readSourceMeta(dir: string): SourceMeta | null {
   const sourceJsonPath = path.join(dir, SOURCE_JSON)
   const raw = readJsonSafe(sourceJsonPath)
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
-    return isFile(sourceJsonPath) ? { package: '', version: '', source: 'SKILL.md', hash: '' } : null
+    return isFile(sourceJsonPath) ? { package: '', version: '', hash: '' } : null
   }
   const obj = raw as Record<string, unknown>
   return {
     package: typeof obj.package === 'string' ? obj.package : '',
     version: typeof obj.version === 'string' ? obj.version : '',
-    source: obj.source === 'skill/' ? 'skill/' : 'SKILL.md',
     hash: typeof obj.hash === 'string' ? obj.hash : '',
   }
 }
 
-/** The files a package's skill materializes to: a lone SKILL.md, or the full contents of skill/. */
+/** The files a package's skill materializes to: the full contents of its skill/ directory. */
 export function readPackageSkillFiles(pkg: SkillPackage, log: Logger): Map<string, Buffer> {
-  if (pkg.layout === 'SKILL.md') {
-    return new Map([['SKILL.md', fs.readFileSync(path.join(pkg.dir, 'SKILL.md'))]])
-  }
   const files = readDirFiles(path.join(pkg.dir, 'skill'))
   if (files.has(SOURCE_JSON)) {
     files.delete(SOURCE_JSON)
@@ -143,7 +139,7 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
       continue
     }
     const desiredHash = hashFileMap(files)
-    const meta: SourceMeta = { package: pkg.name, version: pkg.version, source: pkg.layout, hash: desiredHash }
+    const meta: SourceMeta = { package: pkg.name, version: pkg.version, hash: desiredHash }
 
     const realDests = analysis.style === 'copy' ? analysis.physicalDirs : [analysis.primaryDir]
     const linkDests = analysis.style === 'copy' ? [] : analysis.physicalDirs.filter((d) => d !== analysis.primaryDir)
@@ -220,8 +216,7 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
         } else if (
           state.meta.hash === desiredHash &&
           state.meta.package === pkg.name &&
-          state.meta.version === pkg.version &&
-          state.meta.source === pkg.layout
+          state.meta.version === pkg.version
         ) {
           writtenDirs.push(dir) // up-to-date
         } else if (state.meta.hash === desiredHash && state.meta.package === pkg.name) {

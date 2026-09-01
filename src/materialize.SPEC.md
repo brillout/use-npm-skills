@@ -4,7 +4,7 @@ Writes each skill package's skill into the target skills directories — the onl
 
 [1] tool-owned: a skill entry that carries a `source.json` [2] (directly, or resolved through its symlink) — it was materialized by the tool, which may therefore update or remove it.
 
-[2] source.json: the metadata file written into every materialized skill: the source package's name and version, which skill layout it shipped, and the content hash of the materialized files.
+[2] source.json: the metadata file written into every materialized skill: the source package's name and version, and the content hash of the materialized files.
 
 [3] user-authored: a skill entry without a `source.json` [2] — written by the user; the tool never touches it.
 
@@ -79,7 +79,7 @@ Re-materializing identical content on every run would churn files, timestamps, a
 
 #### Business logic
 
-Per target directory: a missing entry is written fresh (the skill's files plus `source.json` [2]). An entry whose recorded hash, package, version, and layout all match the package's current skill is up-to-date and untouched. Same content but a different recorded version (a version-only bump): only `source.json` is rewritten. Different content: the entry is deleted and rewritten wholesale, so files the new version no longer ships disappear. A skill's outcome is reported as added when it appeared somewhere, as updated when something changed, as up-to-date otherwise.
+Per target directory: a missing entry is written fresh (the skill's files plus `source.json` [2]). An entry whose recorded hash, package, and version all match the package's current skill is up-to-date and untouched. Same content but a different recorded version (a version-only bump): only `source.json` is rewritten. Different content: the entry is deleted and rewritten wholesale, so files the new version no longer ships disappear. A skill's outcome is reported as added when it appeared somewhere, as updated when something changed, as up-to-date otherwise.
 
 ### Mirroring
 

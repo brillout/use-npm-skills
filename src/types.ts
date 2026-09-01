@@ -3,16 +3,13 @@ export const CONFIG_FILE = '.use-npm-skills.json'
 export const SOURCE_JSON = 'source.json'
 export const DEFAULT_SKILLS_DIR = '.agents/skills'
 
-export type SkillLayout = 'SKILL.md' | 'skill/'
-
-/** An installed npm package that ships a skill. */
+/** An installed npm package that ships a skill (in its skill/ directory). */
 export interface SkillPackage {
   /** npm package name */
   name: string
   version: string
   /** Absolute path of the package inside node_modules (through pnpm symlinks). */
   dir: string
-  layout: SkillLayout
   /** The skill's frontmatter `name` — also the materialized directory name. */
   skillName: string
 }
@@ -21,7 +18,6 @@ export interface SkillPackage {
 export interface SourceMeta {
   package: string
   version: string
-  source: SkillLayout
   hash: string
 }
 

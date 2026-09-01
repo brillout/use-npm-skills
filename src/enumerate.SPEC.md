@@ -4,12 +4,10 @@ Finds the installed skill packages: which of the project's installed npm package
 
 [1] skill package: an installed npm package marked with `"use-npm-skills"` in its `package.json` `keywords`, shipping exactly one skill.
 
-[2] skill layout: the place inside a skill package where the skill lives — either a single `SKILL.md` file at the package root, or a `skill/` directory whose full contents are the skill.
-
 ## Business logic — TL;DR
 
 - **The keyword is the only marker** - a skill package [1] is any top-level `node_modules` package with `"use-npm-skills"` in its keywords; nothing else qualifies a package.
-- **Two skill layouts** - a root `SKILL.md`, or a `skill/` directory; a package shipping both gets `skill/` (with a warning).
+- **The skill lives in skill/** - the package's `skill/` directory holds the whole skill; it is the only place the tool looks — a `SKILL.md` at the package root does not count.
 - **The skill is named by its frontmatter** - the `name` field of the skill's `SKILL.md` frontmatter names the skill; it must be valid per the agentskills.io spec.
 - **Broken packages are skipped, not fatal** - a marked package without a usable skill is warned about and skipped; the run continues.
 
@@ -29,15 +27,19 @@ Every top-level package in the project root's `node_modules/` — scoped package
 
 A top-level-only scan is sufficient even on pnpm's strict layout because skill packages are direct dependencies of the project. The keyword doubles as a free public directory of all published skills via npm keyword search.
 
-### Two skill layouts
+### The skill lives in skill/
 
 #### User story
 
-The skill author publishes either a single-file skill (just a `SKILL.md`) or a full skill directory (`SKILL.md` plus reference files, scripts, …).
+The skill author puts everything the skill ships — its `SKILL.md`, plus any reference docs, scripts, templates — into the package's `skill/` directory.
 
 #### Business logic
 
-A skill package ships its skill in one of two layouts [2]: a `SKILL.md` at the package root (the skill is that one file), or a `skill/` directory (the skill is the directory's full contents). One package delivers exactly one skill; multi-skill packages are out of scope by design. A package shipping both layouts gets `skill/` and a warning.
+A skill package ships its skill as a `skill/` directory at the package root, containing a `SKILL.md`; the directory's full contents are the skill. This is the only place the tool looks — in particular, a `SKILL.md` at the package root does not count, so a package shipping only that is treated as shipping no skill (see "Broken packages are skipped, not fatal"). One package delivers exactly one skill; multi-skill packages are out of scope by design.
+
+#### Rationale
+
+A single directory-shaped layout is future-proof: it works for today's materialization (copying the directory's contents out of `node_modules/`) and equally for a potential future mode that symlinks each skill entry straight to the package — a directory can be the target of such a symlink, while a lone `SKILL.md` in a package root full of unrelated files (`package.json`, `README.md`, …) cannot.
 
 ### The skill is named by its frontmatter
 
@@ -57,7 +59,7 @@ One broken skill package must not prevent every other skill from syncing.
 
 #### Business logic
 
-A package carrying the keyword but shipping no skill layout, an unreadable `SKILL.md`, a missing frontmatter `name`, or an invalid skill name is skipped with a warning naming the package and the reason; the run continues with the remaining packages.
+A package carrying the keyword but shipping no `skill/` directory, an unreadable `skill/SKILL.md`, a missing frontmatter `name`, or an invalid skill name is skipped with a warning naming the package and the reason; the run continues with the remaining packages.
 
 ## Before modifying/creating SPEC.md files
 

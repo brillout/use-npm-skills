@@ -3,7 +3,7 @@ import path from 'node:path'
 import { isValidSkillName, parseFrontmatterName } from './frontmatter.js'
 import { isDirectory, isFile, readdirSafe, readJsonSafe } from './fsUtils.js'
 import type { Logger } from './logger.js'
-import { KEYWORD, UsageError, type SkillLayout, type SkillPackage } from './types.js'
+import { KEYWORD, UsageError, type SkillPackage } from './types.js'
 
 /**
  * A skill package = a top-level node_modules package with "use-npm-skills" in
@@ -39,31 +39,25 @@ export function enumerateSkillPackages(root: string, log: Logger): SkillPackage[
     const keywords = pkgJson.keywords
     if (!Array.isArray(keywords) || !keywords.includes(KEYWORD)) continue
 
-    const layout = detectLayout(dir)
-    if (!layout) {
+    const skillMdPath = path.join(dir, 'skill', 'SKILL.md')
+    if (!isFile(skillMdPath)) {
       log.warn(
         `package \`${name}\` is marked with the \`${KEYWORD}\` keyword but ships no skill ` +
-          `(expected a root SKILL.md or a skill/ directory) — skipping`,
+          `(expected a skill/ directory containing a SKILL.md) — skipping`,
       )
       continue
     }
-    if (layout === 'skill/' && isFile(path.join(dir, 'SKILL.md'))) {
-      log.warn(`package \`${name}\` ships both a root SKILL.md and a skill/ directory — using skill/`)
-    }
 
-    const skillMdPath = layout === 'skill/' ? path.join(dir, 'skill', 'SKILL.md') : path.join(dir, 'SKILL.md')
     let skillMd: string
     try {
       skillMd = fs.readFileSync(skillMdPath, 'utf8')
     } catch {
-      log.warn(`package \`${name}\`: cannot read ${path.relative(dir, skillMdPath)} — skipping`)
+      log.warn(`package \`${name}\`: cannot read skill/SKILL.md — skipping`)
       continue
     }
     const skillName = parseFrontmatterName(skillMd)
     if (!skillName) {
-      log.warn(
-        `package \`${name}\`: no \`name\` in the frontmatter of ${layout === 'skill/' ? 'skill/SKILL.md' : 'SKILL.md'} — skipping`,
-      )
+      log.warn(`package \`${name}\`: no \`name\` in the frontmatter of skill/SKILL.md — skipping`)
       continue
     }
     if (!isValidSkillName(skillName)) {
@@ -75,13 +69,7 @@ export function enumerateSkillPackages(root: string, log: Logger): SkillPackage[
     }
 
     const version = typeof pkgJson.version === 'string' ? pkgJson.version : '0.0.0'
-    packages.push({ name, version, dir, layout, skillName })
+    packages.push({ name, version, dir, skillName })
   }
   return packages
-}
-
-function detectLayout(dir: string): SkillLayout | null {
-  if (isFile(path.join(dir, 'skill', 'SKILL.md'))) return 'skill/'
-  if (isFile(path.join(dir, 'SKILL.md'))) return 'SKILL.md'
-  return null
 }
