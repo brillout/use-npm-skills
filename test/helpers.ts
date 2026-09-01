@@ -34,14 +34,9 @@ export function skillMd(name: string, body = ''): string {
   return `---\nname: ${name}\ndescription: A test skill.\n---\n\n# ${name}\n${body}`
 }
 
-/** node_modules subtree for a package shipping a root SKILL.md. */
-export function skillPkgFile(name: string, skillName: string, version = '1.0.0', body = ''): Tree {
-  return { 'package.json': pkgJson(name, version), 'SKILL.md': skillMd(skillName, body) }
-}
-
-/** node_modules subtree for a package shipping a skill/ directory. */
-export function skillPkgDir(name: string, skillName: string, version = '1.0.0', extraFiles: Tree = {}): Tree {
-  return { 'package.json': pkgJson(name, version), skill: { 'SKILL.md': skillMd(skillName), ...extraFiles } }
+/** node_modules subtree for a skill package (its skill/ directory holds a SKILL.md plus `files`). */
+export function skillPkg(name: string, skillName: string, version = '1.0.0', files: Tree = {}): Tree {
+  return { 'package.json': pkgJson(name, version), skill: { 'SKILL.md': skillMd(skillName), ...files } }
 }
 
 export async function run(root: string, options: Partial<SyncOptions> = {}) {

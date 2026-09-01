@@ -13,8 +13,7 @@ import {
   readSource,
   run,
   skillMd,
-  skillPkgDir,
-  skillPkgFile,
+  skillPkg,
 } from './helpers.js'
 
 describe('root resolution', () => {
@@ -32,7 +31,7 @@ describe('root resolution', () => {
   test('walks up to the lockfile (monorepo workspace root)', async () => {
     const root = makeProject({
       'pnpm-lock.yaml': '',
-      node_modules: { 'my-skill-pkg': skillPkgFile('my-skill-pkg', 'my-skill') },
+      node_modules: { 'my-skill-pkg': skillPkg('my-skill-pkg', 'my-skill') },
       packages: { app: { 'package.json': '{}' } },
     })
     fs.rmSync(j(root, 'package-lock.json'))
@@ -53,8 +52,8 @@ describe('enumeration', () => {
   test('only packages with the use-npm-skills keyword count', async () => {
     const root = makeProject({
       node_modules: {
-        'skill-pkg': skillPkgFile('skill-pkg', 'my-skill'),
-        'not-a-skill': { 'package.json': pkgJson('not-a-skill', '1.0.0', ['cli']), 'SKILL.md': skillMd('nope') },
+        'skill-pkg': skillPkg('skill-pkg', 'my-skill'),
+        'not-a-skill': { 'package.json': pkgJson('not-a-skill', '1.0.0', ['cli']), skill: { 'SKILL.md': skillMd('nope') } },
         'no-keywords': { 'package.json': JSON.stringify({ name: 'no-keywords', version: '1.0.0' }) },
       },
     })
@@ -65,13 +64,13 @@ describe('enumeration', () => {
 
   test('scoped packages are scanned', async () => {
     const root = makeProject({
-      node_modules: { '@acme': { 'skill-pkg': skillPkgFile('@acme/skill-pkg', 'acme-skill') } },
+      node_modules: { '@acme': { 'skill-pkg': skillPkg('@acme/skill-pkg', 'acme-skill') } },
     })
     const { result } = await run(root)
     expect(result.actions).toMatchObject([{ kind: 'added', skill: 'acme-skill', package: '@acme/skill-pkg' }])
   })
 
-  test('a marked package without a skill layout is skipped with a warning', async () => {
+  test('a marked package without a skill/ directory is skipped with a warning', async () => {
     const root = makeProject({
       node_modules: { broken: { 'package.json': pkgJson('broken') } },
     })
@@ -81,9 +80,19 @@ describe('enumeration', () => {
     expect(exists(j(root, '.agents'))).toBe(false)
   })
 
+  test('a root SKILL.md is not a skill/ directory: skipped with a warning', async () => {
+    const root = makeProject({
+      node_modules: { 'old-style': { 'package.json': pkgJson('old-style'), 'SKILL.md': skillMd('old') } },
+    })
+    const { result, log } = await run(root)
+    expect(result.exitCode).toBe(0)
+    expect(log.warnings.join('\n')).toMatch(/ships a root SKILL\.md, which is not supported/)
+    expect(exists(j(root, '.agents'))).toBe(false)
+  })
+
   test('a skill without a frontmatter name is skipped with a warning', async () => {
     const root = makeProject({
-      node_modules: { nameless: { 'package.json': pkgJson('nameless'), 'SKILL.md': '# no frontmatter' } },
+      node_modules: { nameless: { 'package.json': pkgJson('nameless'), skill: { 'SKILL.md': '# no frontmatter' } } },
     })
     const { log } = await run(root)
     expect(log.warnings.join('\n')).toMatch(/no `name` in the frontmatter/)
@@ -91,7 +100,7 @@ describe('enumeration', () => {
 
   test('an invalid skill name is skipped with a warning', async () => {
     const root = makeProject({
-      node_modules: { bad: { 'package.json': pkgJson('bad'), 'SKILL.md': skillMd('Bad Name!') } },
+      node_modules: { bad: { 'package.json': pkgJson('bad'), skill: { 'SKILL.md': skillMd('Bad Name!') } } },
     })
     const { log } = await run(root)
     expect(log.warnings.join('\n')).toMatch(/invalid skill name/)
@@ -99,44 +108,35 @@ describe('enumeration', () => {
 })
 
 describe('materialization', () => {
-  test('root SKILL.md layout: only that file is materialized', async () => {
+  test('the full contents of skill/ are materialized — package files outside it are not', async () => {
     const root = makeProject({
       node_modules: {
-        'skill-pkg': { ...skillPkgFile('skill-pkg', 'my-skill'), 'README.md': 'not part of the skill' },
+        'skill-pkg': {
+          ...skillPkg('skill-pkg', 'my-skill', '2.0.0', {
+            'reference.md': 'extra docs',
+            scripts: { 'run.js': 'console.log(1)' },
+          }),
+          'README.md': 'not part of the skill',
+        },
       },
     })
     await run(root)
     const skillDir = j(root, '.agents', 'skills', 'my-skill')
     expect(read(j(skillDir, 'SKILL.md'))).toBe(skillMd('my-skill'))
+    expect(read(j(skillDir, 'reference.md'))).toBe('extra docs')
+    expect(read(j(skillDir, 'scripts', 'run.js'))).toBe('console.log(1)')
     expect(exists(j(skillDir, 'README.md'))).toBe(false)
+    expect(exists(j(skillDir, 'package.json'))).toBe(false)
     expect(readSource(skillDir)).toEqual({
       package: 'skill-pkg',
-      version: '1.0.0',
-      source: 'SKILL.md',
+      version: '2.0.0',
       hash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
     })
   })
 
-  test('skill/ layout: the full directory contents are materialized', async () => {
-    const root = makeProject({
-      node_modules: {
-        'skill-pkg': skillPkgDir('skill-pkg', 'my-skill', '2.0.0', {
-          'reference.md': 'extra docs',
-          scripts: { 'run.js': 'console.log(1)' },
-        }),
-      },
-    })
-    await run(root)
-    const skillDir = j(root, '.agents', 'skills', 'my-skill')
-    expect(exists(j(skillDir, 'SKILL.md'))).toBe(true)
-    expect(read(j(skillDir, 'reference.md'))).toBe('extra docs')
-    expect(read(j(skillDir, 'scripts', 'run.js'))).toBe('console.log(1)')
-    expect(readSource(skillDir)).toMatchObject({ package: 'skill-pkg', version: '2.0.0', source: 'skill/' })
-  })
-
   test('the materialized dir name is the frontmatter name, not the package name', async () => {
     const root = makeProject({
-      node_modules: { 'some-npm-name': skillPkgFile('some-npm-name', 'pretty-name') },
+      node_modules: { 'some-npm-name': skillPkg('some-npm-name', 'pretty-name') },
     })
     await run(root)
     expect(exists(j(root, '.agents', 'skills', 'pretty-name', 'SKILL.md'))).toBe(true)
@@ -146,8 +146,8 @@ describe('materialization', () => {
   test('skill-name collision: first package alphabetically wins', async () => {
     const root = makeProject({
       node_modules: {
-        'aaa-pkg': skillPkgFile('aaa-pkg', 'shared-name', '1.0.0', 'from aaa'),
-        'zzz-pkg': skillPkgFile('zzz-pkg', 'shared-name', '1.0.0', 'from zzz'),
+        'aaa-pkg': skillPkg('aaa-pkg', 'shared-name', '1.0.0', { 'SKILL.md': skillMd('shared-name', 'from aaa') }),
+        'zzz-pkg': skillPkg('zzz-pkg', 'shared-name', '1.0.0', { 'SKILL.md': skillMd('shared-name', 'from zzz') }),
       },
     })
     const { result, log } = await run(root)
@@ -158,12 +158,12 @@ describe('materialization', () => {
 
   test('updates: changed content is replaced, stale files removed', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgDir('p', 's', '1.0.0', { 'old.md': 'old' }) },
+      node_modules: { p: skillPkg('p', 's', '1.0.0', { 'old.md': 'old' }) },
     })
     await run(root)
     expect(exists(j(root, '.agents', 'skills', 's', 'old.md'))).toBe(true)
 
-    makeTree(j(root, 'node_modules'), { p: skillPkgDir('p', 's', '2.0.0', { 'new.md': 'new' }) })
+    makeTree(j(root, 'node_modules'), { p: skillPkg('p', 's', '2.0.0', { 'new.md': 'new' }) })
     fs.rmSync(j(root, 'node_modules', 'p', 'skill', 'old.md'))
     const { result } = await run(root)
     const skillDir = j(root, '.agents', 'skills', 's')
@@ -174,7 +174,7 @@ describe('materialization', () => {
   })
 
   test('version-only bump refreshes source.json without touching content', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's', '1.0.0') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's', '1.0.0') } })
     await run(root)
     const before = readSource(j(root, '.agents', 'skills', 's'))
     makeTree(j(root, 'node_modules'), { p: { 'package.json': pkgJson('p', '1.0.1') } })
@@ -186,7 +186,7 @@ describe('materialization', () => {
   })
 
   test('a second run is idempotent (up-to-date)', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     const { result } = await run(root)
     expect(result.actions).toEqual([expect.objectContaining({ kind: 'up-to-date', skill: 's' })])
@@ -197,7 +197,7 @@ describe('materialization', () => {
 describe('target dirs', () => {
   test('no qualifying dirs: .agents/skills/ is created and used', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.claude': { skills: {} }, // empty = a Git leftover, not a target
     })
     const { result } = await run(root)
@@ -208,7 +208,7 @@ describe('target dirs', () => {
 
   test('an existing skills dir with at least one skill is the target', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.claude': { skills: { 'user-skill': { 'SKILL.md': skillMd('user-skill') } } },
     })
     await run(root)
@@ -218,7 +218,7 @@ describe('target dirs', () => {
 
   test('root-level skills/ and one-level-deep dirs are found; deeper nesting is not', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       skills: { 'user-skill': { 'SKILL.md': skillMd('user-skill') } },
       apps: { web: { '.claude': { skills: { deep: { 'SKILL.md': skillMd('deep') } } } } },
     })
@@ -230,7 +230,7 @@ describe('target dirs', () => {
 
   test('multiple targets: real files in .agents/skills, relative symlinks elsewhere', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
       '.claude': { skills: { u2: { 'SKILL.md': skillMd('u2') } } },
     })
@@ -243,7 +243,7 @@ describe('target dirs', () => {
 
   test('dir-level symlink: one physical dir, nothing mirrored', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
       '.claude': {},
     })
@@ -260,7 +260,7 @@ describe('target dirs', () => {
 describe('structure analysis wins over the default', () => {
   test('existing per-skill symlink pattern: its primary dir is kept', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.claude': { skills: { existing: { 'SKILL.md': skillMd('existing') } } },
       '.agents': { skills: {} },
     })
@@ -274,7 +274,7 @@ describe('structure analysis wins over the default', () => {
 
   test('existing duplicated-copies pattern: copies everywhere', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.agents': { skills: { existing: { 'SKILL.md': skillMd('existing') } } },
       '.claude': { skills: { existing: { 'SKILL.md': skillMd('existing') } } },
     })
@@ -286,7 +286,7 @@ describe('structure analysis wins over the default', () => {
 
   test('on Windows without Git symlink support, copies are the default', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
       '.claude': { skills: { u2: { 'SKILL.md': skillMd('u2') } } },
     })
@@ -297,7 +297,7 @@ describe('structure analysis wins over the default', () => {
 
   test('on Windows with Git symlink support, symlinks are the default', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
       '.claude': { skills: { u2: { 'SKILL.md': skillMd('u2') } } },
     })
@@ -309,7 +309,7 @@ describe('structure analysis wins over the default', () => {
 
   test('on Windows, an existing symlink pattern wins even without Git symlink support', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.claude': { skills: { existing: { 'SKILL.md': skillMd('existing') } } },
       '.agents': { skills: {} },
     })
@@ -321,7 +321,7 @@ describe('structure analysis wins over the default', () => {
   })
 
   test('a target added later gets mirror links on the next run', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root) // materializes into .agents/skills
     makeTree(root, { '.cursor': { skills: { u: { 'SKILL.md': skillMd('u') } } } })
     await run(root)

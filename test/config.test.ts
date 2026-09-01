@@ -1,11 +1,11 @@
 import fs from 'node:fs'
 import { describe, expect, test } from 'vitest'
 import { UsageError } from '../src/types.js'
-import { exists, isLink, j, makeProject, read, run, skillPkgFile } from './helpers.js'
+import { exists, isLink, j, makeProject, read, run, skillPkg } from './helpers.js'
 
 describe('.use-npm-skills.json', () => {
   test('exclude: the package is skipped and its pristine skill pruned', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     expect(exists(j(root, '.agents', 'skills', 's'))).toBe(true)
 
@@ -17,7 +17,7 @@ describe('.use-npm-skills.json', () => {
   })
 
   test('exclude keeps the changes of a modified skill (adoption)', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     fs.appendFileSync(j(root, '.agents', 'skills', 's', 'SKILL.md'), 'my tweak')
 
@@ -31,7 +31,7 @@ describe('.use-npm-skills.json', () => {
 
   test('skillsDirs overrides discovery', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.use-npm-skills.json': JSON.stringify({ skillsDirs: ['tools/skills', '.claude/skills'] }),
     })
     const { result } = await run(root)

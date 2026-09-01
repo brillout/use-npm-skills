@@ -82,19 +82,21 @@ Optional — `.use-npm-skills.json` at the project root:
 
 ## Publishing a skill
 
-A skill package is a normal npm package. The smallest one is two files:
+A skill package is a normal npm package with the skill in a `skill/` directory:
 
 ```
 skill-awesome-memory/
 ├── package.json
-└── SKILL.md
+└── skill/
+    └── SKILL.md
 ```
 
 ```json
 {
   "name": "skill-awesome-memory",
   "version": "1.0.0",
-  "keywords": ["use-npm-skills"]
+  "keywords": ["use-npm-skills"],
+  "files": ["skill"]
 }
 ```
 
@@ -114,11 +116,11 @@ That's it — `npm publish`. Two things matter:
 
 ### Skills with more files
 
-If your skill ships more than a `SKILL.md` — reference docs, scripts, templates — put everything in a `skill/` directory; its full contents are installed:
+Everything in `skill/` is installed — ship reference docs, scripts, templates next to the `SKILL.md`:
 
 ```
 skill-awesome-memory/
-├── package.json          ← add "files": ["skill"] to keep the package lean
+├── package.json
 └── skill/
     ├── SKILL.md
     ├── reference.md

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import { describe, expect, test } from 'vitest'
-import { exists, isLink, j, makeProject, read, readSource, run, skillMd, skillPkgFile } from './helpers.js'
+import { exists, isLink, j, makeProject, read, readSource, run, skillMd, skillPkg } from './helpers.js'
 
 const twoTargets = {
   '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
@@ -9,7 +9,7 @@ const twoTargets = {
 
 describe('tamper protection', () => {
   test('a locally-modified skill is left untouched: warning + non-zero exit', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     const skillMdPath = j(root, '.agents', 'skills', 's', 'SKILL.md')
     fs.appendFileSync(skillMdPath, '\nmy local tweak\n')
@@ -25,7 +25,7 @@ describe('tamper protection', () => {
   })
 
   test('an added file also counts as a local modification', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     fs.writeFileSync(j(root, '.agents', 'skills', 's', 'notes.md'), 'mine')
     const { result } = await run(root)
@@ -34,7 +34,7 @@ describe('tamper protection', () => {
   })
 
   test('CRLF line endings (core.autocrlf) do not count as a modification', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     const skillMdPath = j(root, '.agents', 'skills', 's', 'SKILL.md')
     fs.writeFileSync(skillMdPath, read(skillMdPath).replaceAll('\n', '\r\n'))
@@ -44,7 +44,7 @@ describe('tamper protection', () => {
   })
 
   test('--force (non-TTY): lists the modified skills and overwrites them', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     fs.appendFileSync(j(root, '.agents', 'skills', 's', 'SKILL.md'), 'tweak')
 
@@ -61,7 +61,7 @@ describe('tamper protection', () => {
   })
 
   test('--force with a declined confirmation keeps the changes, exit 0', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     fs.appendFileSync(j(root, '.agents', 'skills', 's', 'SKILL.md'), 'tweak')
 
@@ -73,7 +73,7 @@ describe('tamper protection', () => {
 
   test('other skills still sync when one is tampered', async () => {
     const root = makeProject({
-      node_modules: { p1: skillPkgFile('p1', 's1'), p2: skillPkgFile('p2', 's2') },
+      node_modules: { p1: skillPkg('p1', 's1'), p2: skillPkg('p2', 's2') },
     })
     await run(root)
     fs.appendFileSync(j(root, '.agents', 'skills', 's1', 'SKILL.md'), 'tweak')
@@ -87,13 +87,13 @@ describe('tamper protection', () => {
 })
 
 function makeTreeUpdate(root: string) {
-  fs.writeFileSync(j(root, 'node_modules', 'p2', 'SKILL.md'), skillMd('s2', 'v2'))
+  fs.writeFileSync(j(root, 'node_modules', 'p2', 'skill', 'SKILL.md'), skillMd('s2', 'v2'))
 }
 
 describe('user-authored skills always win', () => {
   test('an existing skill without source.json is never touched', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkgFile('p', 's') },
+      node_modules: { p: skillPkg('p', 's') },
       '.agents': { skills: { s: { 'SKILL.md': skillMd('s', 'hand-written') } } },
     })
     const { result, log } = await run(root)
@@ -107,7 +107,7 @@ describe('user-authored skills always win', () => {
 
 describe('pruning', () => {
   test('a pristine orphan is deleted together with its mirror symlinks', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') }, ...twoTargets })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') }, ...twoTargets })
     await run(root)
     expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(true)
 
@@ -119,7 +119,7 @@ describe('pruning', () => {
   })
 
   test('a modified orphan is adopted: source.json removed, files kept', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     fs.appendFileSync(j(root, '.agents', 'skills', 's', 'SKILL.md'), 'my tweak')
 
@@ -132,7 +132,7 @@ describe('pruning', () => {
   })
 
   test('an adopted skill then blocks re-materialization if the package comes back', async () => {
-    const root = makeProject({ node_modules: { p: skillPkgFile('p', 's') } })
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
     await run(root)
     fs.appendFileSync(j(root, '.agents', 'skills', 's', 'SKILL.md'), 'my tweak')
     const packageDir = j(root, 'node_modules', 'p')

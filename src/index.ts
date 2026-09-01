@@ -10,7 +10,6 @@ export {
   type Analysis,
   type Config,
   type MirrorStyle,
-  type SkillLayout,
   type SkillPackage,
   type SourceMeta,
   type SyncResult,

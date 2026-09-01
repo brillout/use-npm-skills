@@ -13,7 +13,8 @@ Resolve project root → enumerate installed skill packages → determine target
 - A skill package = a top-level `node_modules` package whose `package.json` has
   **`"use-npm-skills"` in `keywords`** — the only marker; the keyword doubles as a
   free directory of all published skills via npmjs keyword search. A marked package
-  without a skill layout ⇒ skip. Root-level scan only (sufficient on pnpm's strict
+  without a `skill/` directory ⇒ skip (a root `SKILL.md` gets a warning pointing to
+  `skill/`). Root-level scan only (sufficient on pnpm's strict
   layout because skill packages are direct deps); no lockfile parsing. Yarn PnP:
   detect `.pnp.cjs`, print "unsupported", exit 0.
 
@@ -41,9 +42,13 @@ Resolve project root → enumerate installed skill packages → determine target
   "available" breaks teammates' checkouts, a wrong "unavailable" just copies.
 
 ### Materialize each skill
-- The skill npm package ships its skill in one of two layouts: a root `SKILL.md`
-  (materialization takes that file only) or a `skill/` directory (materialization
-  takes the dir's full contents). One package = one skill.
+- The skill npm package ships its skill in a `skill/` directory (materialization takes
+  the dir's full contents) — the **only** supported layout. A root-`SKILL.md` layout
+  was considered and dropped as not future-proof: a directory works both for today's
+  copy materialization out of `node_modules/` and for a potential future mode that
+  symlinks each skill entry straight to the package — a lone `SKILL.md` in a package
+  root full of unrelated files could never be the target of such a symlink.
+  One package = one skill.
 - Materialized entries are real files meant to be **committed** (nothing is gitignored)
   — requirement: repos must be skill-aware at rest, i.e. an agent reading a fresh clone
   sees every skill before anything is installed. This is why gitignored materialization
@@ -56,7 +61,7 @@ Resolve project root → enumerate installed skill packages → determine target
   name wins; later ones skipped + warned.
 - Ownership: an entry is tool-owned iff it carries `source.json` (directly, or resolved
   through its symlink). Everything else is user-authored and always wins: skip + warn.
-- `source.json` = `{ "package", "version", "source", "hash" }`. Hash covers
+- `source.json` = `{ "package", "version", "hash" }`. Hash covers
   materialized files, `source.json` excluded, newline-normalized — otherwise
   `core.autocrlf` checkouts make every skill look locally modified on Windows.
 - **Tamper protection**: hash mismatch ⇒ the user edited the copy — leave untouched,
