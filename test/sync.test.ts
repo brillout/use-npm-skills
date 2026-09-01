@@ -70,23 +70,13 @@ describe('enumeration', () => {
     expect(result.actions).toMatchObject([{ kind: 'added', skill: 'acme-skill', package: '@acme/skill-pkg' }])
   })
 
-  test('a marked package without a skill/ directory is skipped with a warning', async () => {
+  test('a marked package without a skill/ directory is skipped with a warning (a root SKILL.md does not count)', async () => {
     const root = makeProject({
-      node_modules: { broken: { 'package.json': pkgJson('broken') } },
+      node_modules: { broken: { 'package.json': pkgJson('broken'), 'SKILL.md': skillMd('broken') } },
     })
     const { result, log } = await run(root)
     expect(result.exitCode).toBe(0)
     expect(log.warnings.join('\n')).toMatch(/ships no skill/)
-    expect(exists(j(root, '.agents'))).toBe(false)
-  })
-
-  test('a root SKILL.md is not a skill/ directory: skipped with a warning', async () => {
-    const root = makeProject({
-      node_modules: { 'old-style': { 'package.json': pkgJson('old-style'), 'SKILL.md': skillMd('old') } },
-    })
-    const { result, log } = await run(root)
-    expect(result.exitCode).toBe(0)
-    expect(log.warnings.join('\n')).toMatch(/ships a root SKILL\.md, which is not supported/)
     expect(exists(j(root, '.agents'))).toBe(false)
   })
 

@@ -7,7 +7,7 @@ Finds the installed skill packages: which of the project's installed npm package
 ## Business logic — TL;DR
 
 - **The keyword is the only marker** - a skill package [1] is any top-level `node_modules` package with `"use-npm-skills"` in its keywords; nothing else qualifies a package.
-- **The skill lives in skill/** - the package's `skill/` directory holds the whole skill; it is the only supported place — a `SKILL.md` at the package root is not supported.
+- **The skill lives in skill/** - the package's `skill/` directory holds the whole skill; it is the only place the tool looks — a `SKILL.md` at the package root does not count.
 - **The skill is named by its frontmatter** - the `name` field of the skill's `SKILL.md` frontmatter names the skill; it must be valid per the agentskills.io spec.
 - **Broken packages are skipped, not fatal** - a marked package without a usable skill is warned about and skipped; the run continues.
 
@@ -35,7 +35,7 @@ The skill author puts everything the skill ships — its `SKILL.md`, plus any re
 
 #### Business logic
 
-A skill package ships its skill as a `skill/` directory at the package root, containing a `SKILL.md`; the directory's full contents are the skill. This is the only supported place — in particular, a package shipping its `SKILL.md` at the package root instead is skipped, with a warning saying a root `SKILL.md` is not supported and the skill must live in a `skill/` directory. One package delivers exactly one skill; multi-skill packages are out of scope by design.
+A skill package ships its skill as a `skill/` directory at the package root, containing a `SKILL.md`; the directory's full contents are the skill. This is the only place the tool looks — in particular, a `SKILL.md` at the package root does not count, so a package shipping only that is treated as shipping no skill (see "Broken packages are skipped, not fatal"). One package delivers exactly one skill; multi-skill packages are out of scope by design.
 
 #### Rationale
 
@@ -59,7 +59,7 @@ One broken skill package must not prevent every other skill from syncing.
 
 #### Business logic
 
-A package carrying the keyword but shipping no `skill/` directory (a root `SKILL.md` included), an unreadable `skill/SKILL.md`, a missing frontmatter `name`, or an invalid skill name is skipped with a warning naming the package and the reason; the run continues with the remaining packages.
+A package carrying the keyword but shipping no `skill/` directory, an unreadable `skill/SKILL.md`, a missing frontmatter `name`, or an invalid skill name is skipped with a warning naming the package and the reason; the run continues with the remaining packages.
 
 ## Before modifying/creating SPEC.md files
 

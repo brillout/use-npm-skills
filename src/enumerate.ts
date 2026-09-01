@@ -42,11 +42,8 @@ export function enumerateSkillPackages(root: string, log: Logger): SkillPackage[
     const skillMdPath = path.join(dir, 'skill', 'SKILL.md')
     if (!isFile(skillMdPath)) {
       log.warn(
-        isFile(path.join(dir, 'SKILL.md'))
-          ? `package \`${name}\` ships a root SKILL.md, which is not supported — the skill ` +
-              `(its SKILL.md and any other files) must live in a skill/ directory — skipping`
-          : `package \`${name}\` is marked with the \`${KEYWORD}\` keyword but ships no skill ` +
-              `(expected a skill/ directory containing a SKILL.md) — skipping`,
+        `package \`${name}\` is marked with the \`${KEYWORD}\` keyword but ships no skill ` +
+          `(expected a skill/ directory containing a SKILL.md) — skipping`,
       )
       continue
     }

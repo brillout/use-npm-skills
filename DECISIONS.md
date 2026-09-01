@@ -13,8 +13,7 @@ Resolve project root → enumerate installed skill packages → determine target
 - A skill package = a top-level `node_modules` package whose `package.json` has
   **`"use-npm-skills"` in `keywords`** — the only marker; the keyword doubles as a
   free directory of all published skills via npmjs keyword search. A marked package
-  without a `skill/` directory ⇒ skip (a root `SKILL.md` gets a warning pointing to
-  `skill/`). Root-level scan only (sufficient on pnpm's strict
+  without a `skill/` directory ⇒ skip. Root-level scan only (sufficient on pnpm's strict
   layout because skill packages are direct deps); no lockfile parsing. Yarn PnP:
   detect `.pnp.cjs`, print "unsupported", exit 0.
 
