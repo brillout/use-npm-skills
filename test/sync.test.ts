@@ -182,6 +182,19 @@ describe('materialization', () => {
     expect(result.actions).toEqual([expect.objectContaining({ kind: 'up-to-date', skill: 's' })])
     expect(result.exitCode).toBe(0)
   })
+
+  test.skipIf(process.platform === 'win32')('the executable bit is preserved; a chmod is not an edit', async () => {
+    const root = makeProject({
+      node_modules: { p: skillPkg('p', 's', '1.0.0', { bin: { run: '#!/usr/bin/env node\n' } }) },
+    })
+    fs.chmodSync(j(root, 'node_modules', 'p', 'skill', 'bin', 'run'), 0o755)
+    await run(root)
+    const materialized = j(root, '.agents', 'skills', 's', 'bin', 'run')
+    expect(fs.statSync(materialized).mode & 0o111).not.toBe(0)
+    fs.chmodSync(materialized, 0o644)
+    const { result } = await run(root)
+    expect(result.actions).toEqual([expect.objectContaining({ kind: 'up-to-date', skill: 's' })])
+  })
 })
 
 describe('target dirs', () => {

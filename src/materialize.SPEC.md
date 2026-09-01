@@ -79,7 +79,7 @@ Re-materializing identical content on every run would churn files, timestamps, a
 
 #### Business logic
 
-Per target directory: a missing entry is written fresh (the skill's files plus `source.json` [2]). An entry whose recorded hash, package, and version all match the package's current skill is up-to-date and untouched. Same content but a different recorded version (a version-only bump): only `source.json` is rewritten. Different content: the entry is deleted and rewritten wholesale, so files the new version no longer ships disappear. A skill's outcome is reported as added when it appeared somewhere, as updated when something changed, as up-to-date otherwise.
+Per target directory: a missing entry is written fresh (the skill's files plus `source.json` [2]). An entry whose recorded hash, package, and version all match the package's current skill is up-to-date and untouched. Same content but a different recorded version (a version-only bump): only `source.json` is rewritten. Different content: the entry is deleted and rewritten wholesale, so files the new version no longer ships disappear. Written files keep the package's executable bit, so a skill's scripts stay runnable from the materialized copy; permissions never count as content (`hash.SPEC.md`). A skill's outcome is reported as added when it appeared somewhere, as updated when something changed, as up-to-date otherwise.
 
 ### Mirroring
 

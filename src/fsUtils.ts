@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import type { SkillFile } from './types.js'
 
 export type PathType = 'dir' | 'file' | 'symlink' | 'missing'
 
@@ -76,11 +77,12 @@ export function relDisplay(root: string, p: string): string {
   return toPosix(path.relative(root, p)) || '.'
 }
 
-/** Write a { relativePath → content } map into dir, creating parent dirs. */
-export function writeFileMap(dir: string, files: Map<string, Buffer>): void {
-  for (const [rel, content] of files) {
+/** Write a { relativePath → file } map into dir, creating parent dirs; executable files get mode 755. */
+export function writeFileMap(dir: string, files: Map<string, SkillFile>): void {
+  for (const [rel, { content, executable }] of files) {
     const abs = path.join(dir, ...rel.split('/'))
     fs.mkdirSync(path.dirname(abs), { recursive: true })
     fs.writeFileSync(abs, content)
+    if (executable) fs.chmodSync(abs, 0o755)
   }
 }

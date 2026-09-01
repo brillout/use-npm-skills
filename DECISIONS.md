@@ -63,6 +63,10 @@ Resolve project root → enumerate installed skill packages → determine target
 - `source.json` = `{ "package", "version", "hash" }`. Hash covers
   materialized files, `source.json` excluded, newline-normalized — otherwise
   `core.autocrlf` checkouts make every skill look locally modified on Windows.
+  File modes are excluded from the hash: Windows checkouts have no POSIX modes,
+  and a `chmod` is not a user edit.
+- Materialized files keep the package's executable bit (mode 755) — a skill's
+  scripts must stay runnable from the committed copy.
 - **Tamper protection**: hash mismatch ⇒ the user edited the copy — leave untouched,
   warn: "skill `<name>` was modified locally — to keep your changes, remove `<pkg>` or
   add it to `"exclude"` in `.use-npm-skills.json`; or run

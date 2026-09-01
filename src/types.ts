@@ -14,6 +14,12 @@ export interface SkillPackage {
   skillName: string
 }
 
+/** A skill file as read from its package: content plus the executable bit to preserve on the materialized copy. */
+export interface SkillFile {
+  content: Buffer
+  executable: boolean
+}
+
 /** Contents of a materialized skill's source.json. */
 export interface SourceMeta {
   package: string

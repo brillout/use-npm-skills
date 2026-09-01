@@ -15,7 +15,7 @@ Tamper protection and pruning both need to answer "is this materialized skill st
 
 #### Business logic
 
-A skill's hash covers every file under its directory (subdirectories included, symlinked files read through): each file's relative path and content, processed in sorted path order so file-listing order never matters, with path and content contributions kept unambiguous (renaming `a/bc` to `ab/c` changes the hash). The tool's own `source.json` metadata file is excluded — it stores this very hash. Content that cannot be read (e.g. a dangling symlink inside the skill) makes the comparison fail, which callers treat as "locally modified" — erring towards keeping the user's files.
+A skill's hash covers every file under its directory (subdirectories included, symlinked files read through): each file's relative path and content, processed in sorted path order so file-listing order never matters, with path and content contributions kept unambiguous (renaming `a/bc` to `ab/c` changes the hash). File modes are never part of the hash — Windows checkouts have no POSIX modes, and changing a file's permissions is not an edit. The tool's own `source.json` metadata file is excluded — it stores this very hash. Content that cannot be read (e.g. a dangling symlink inside the skill) makes the comparison fail, which callers treat as "locally modified" — erring towards keeping the user's files.
 
 ### Line-ending tolerance
 

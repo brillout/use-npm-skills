@@ -3,7 +3,7 @@ import path from 'node:path'
 import { hashFileMap, hashSkillDir, readDirFiles } from './hash.js'
 import { isFile, lstatType, readJsonSafe, realpathSafe, relDisplay, rmrf, toPosix, writeFileMap } from './fsUtils.js'
 import type { Logger } from './logger.js'
-import { SOURCE_JSON, type Action, type Analysis, type SkillPackage, type SourceMeta } from './types.js'
+import { SOURCE_JSON, type Action, type Analysis, type SkillFile, type SkillPackage, type SourceMeta } from './types.js'
 
 export type EntryState =
   | { type: 'missing' }
@@ -56,7 +56,7 @@ export function readSourceMeta(dir: string): SourceMeta | null {
 }
 
 /** The files a package's skill materializes to: the full contents of its skill/ directory. */
-export function readPackageSkillFiles(pkg: SkillPackage, log: Logger): Map<string, Buffer> {
+export function readPackageSkillFiles(pkg: SkillPackage, log: Logger): Map<string, SkillFile> {
   const files = readDirFiles(path.join(pkg.dir, 'skill'))
   if (files.has(SOURCE_JSON)) {
     files.delete(SOURCE_JSON)
@@ -65,7 +65,7 @@ export function readPackageSkillFiles(pkg: SkillPackage, log: Logger): Map<strin
   return files
 }
 
-export function writeSkill(entryPath: string, files: Map<string, Buffer>, meta: SourceMeta): void {
+export function writeSkill(entryPath: string, files: Map<string, SkillFile>, meta: SourceMeta): void {
   fs.mkdirSync(entryPath, { recursive: true })
   writeFileMap(entryPath, files)
   writeSourceJson(entryPath, meta)
@@ -131,7 +131,7 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
     }
     claimed.set(pkg.skillName, pkg.name)
 
-    let files: Map<string, Buffer>
+    let files: Map<string, SkillFile>
     try {
       files = readPackageSkillFiles(pkg, log)
     } catch (err) {

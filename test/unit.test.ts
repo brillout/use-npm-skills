@@ -81,30 +81,39 @@ describe('detectGitSymlinkSupport', () => {
 })
 
 describe('hashFileMap', () => {
+  const file = (content: string | Buffer, executable = false) => ({
+    content: Buffer.isBuffer(content) ? content : Buffer.from(content),
+    executable,
+  })
   test('is order-independent', () => {
     const a = new Map([
-      ['a.md', Buffer.from('one')],
-      ['b.md', Buffer.from('two')],
+      ['a.md', file('one')],
+      ['b.md', file('two')],
     ])
     const b = new Map([
-      ['b.md', Buffer.from('two')],
-      ['a.md', Buffer.from('one')],
+      ['b.md', file('two')],
+      ['a.md', file('one')],
     ])
     expect(hashFileMap(a)).toBe(hashFileMap(b))
   })
   test('normalizes CRLF to LF for text files', () => {
-    const lf = new Map([['a.md', Buffer.from('line one\nline two\n')]])
-    const crlf = new Map([['a.md', Buffer.from('line one\r\nline two\r\n')]])
+    const lf = new Map([['a.md', file('line one\nline two\n')]])
+    const crlf = new Map([['a.md', file('line one\r\nline two\r\n')]])
     expect(hashFileMap(lf)).toBe(hashFileMap(crlf))
   })
   test('leaves binary content untouched', () => {
-    const a = new Map([['bin', Buffer.from([0, 13, 10, 1])]])
-    const b = new Map([['bin', Buffer.from([0, 10, 1])]])
+    const a = new Map([['bin', file(Buffer.from([0, 13, 10, 1]))]])
+    const b = new Map([['bin', file(Buffer.from([0, 10, 1]))]])
     expect(hashFileMap(a)).not.toBe(hashFileMap(b))
   })
   test('distinguishes paths from content', () => {
-    const a = new Map([['a', Buffer.from('bc')]])
-    const b = new Map([['ab', Buffer.from('c')]])
+    const a = new Map([['a', file('bc')]])
+    const b = new Map([['ab', file('c')]])
     expect(hashFileMap(a)).not.toBe(hashFileMap(b))
+  })
+  test('ignores the executable bit', () => {
+    const plain = new Map([['bin/run', file('#!/usr/bin/env node\n')]])
+    const executable = new Map([['bin/run', file('#!/usr/bin/env node\n', true)]])
+    expect(hashFileMap(plain)).toBe(hashFileMap(executable))
   })
 })
