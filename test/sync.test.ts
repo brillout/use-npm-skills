@@ -12,6 +12,7 @@ import {
   read,
   readSource,
   run,
+  skillDir,
   skillMd,
   skillPkg,
 } from './helpers.js'
@@ -53,7 +54,7 @@ describe('enumeration', () => {
     const root = makeProject({
       node_modules: {
         'skill-pkg': skillPkg('skill-pkg', 'my-skill'),
-        'not-a-skill': { 'package.json': pkgJson('not-a-skill', '1.0.0', ['cli']), skill: { 'SKILL.md': skillMd('nope') } },
+        'not-a-skill': { 'package.json': pkgJson('not-a-skill', '1.0.0', ['cli']), skills: { nope: skillDir('nope') } },
         'no-keywords': { 'package.json': JSON.stringify({ name: 'no-keywords', version: '1.0.0' }) },
       },
     })
@@ -70,27 +71,90 @@ describe('enumeration', () => {
     expect(result.actions).toMatchObject([{ kind: 'added', skill: 'acme-skill', package: '@acme/skill-pkg' }])
   })
 
-  test('a marked package without a skill/ directory is skipped with a warning (a root SKILL.md does not count)', async () => {
+  test('a marked package without skills/ subdirectories is skipped with a warning (root SKILL.md, skill/ do not count)', async () => {
     const root = makeProject({
-      node_modules: { broken: { 'package.json': pkgJson('broken'), 'SKILL.md': skillMd('broken') } },
+      node_modules: {
+        'root-layout': { 'package.json': pkgJson('root-layout'), 'SKILL.md': skillMd('root-layout') },
+        'singular-layout': { 'package.json': pkgJson('singular-layout'), skill: skillDir('singular-layout') },
+        'empty-layout': { 'package.json': pkgJson('empty-layout'), skills: { 'README.md': 'no skills here' } },
+      },
     })
     const { result, log } = await run(root)
     expect(result.exitCode).toBe(0)
-    expect(log.warnings.join('\n')).toMatch(/ships no skill/)
+    expect(result.actions).toEqual([])
+    expect(log.warnings.filter((w) => /ships no skills/.test(w))).toHaveLength(3)
+    expect(exists(j(root, '.agents'))).toBe(false)
+  })
+
+  test('a package shipping several skills: each is materialized with its own source.json', async () => {
+    const root = makeProject({
+      node_modules: {
+        'my-lib': {
+          'package.json': pkgJson('my-lib', '3.1.0'),
+          'index.js': 'module.exports = {}',
+          skills: { 'my-lib-setup': skillDir('my-lib-setup'), 'my-lib-testing': skillDir('my-lib-testing') },
+        },
+      },
+    })
+    const { result } = await run(root)
+    expect(result.actions).toMatchObject([
+      { kind: 'added', skill: 'my-lib-setup', package: 'my-lib' },
+      { kind: 'added', skill: 'my-lib-testing', package: 'my-lib' },
+    ])
+    for (const skill of ['my-lib-setup', 'my-lib-testing']) {
+      const dir = j(root, '.agents', 'skills', skill)
+      expect(read(j(dir, 'SKILL.md'))).toBe(skillMd(skill))
+      expect(readSource(dir)).toMatchObject({ package: 'my-lib', version: '3.1.0' })
+    }
+    expect(fs.readdirSync(j(root, '.agents', 'skills'))).toEqual(['my-lib-setup', 'my-lib-testing'])
+  })
+
+  test('files in skills/ are ignored; a subdirectory without SKILL.md is skipped with a warning, siblings still sync', async () => {
+    const root = makeProject({
+      node_modules: {
+        p: {
+          'package.json': pkgJson('p'),
+          skills: {
+            'README.md': 'about these skills',
+            good: skillDir('good'),
+            shared: { 'helper.md': 'no SKILL.md' },
+          },
+        },
+      },
+    })
+    const { result, log } = await run(root)
+    expect(result.actions).toMatchObject([{ kind: 'added', skill: 'good' }])
+    expect(log.warnings.join('\n')).toMatch(/skills\/shared\/ has no SKILL\.md/)
+    expect(fs.readdirSync(j(root, '.agents', 'skills'))).toEqual(['good'])
+  })
+
+  test('a frontmatter name that differs from the directory name is skipped with a warning', async () => {
+    const root = makeProject({
+      node_modules: {
+        p: { 'package.json': pkgJson('p'), skills: { 'dir-name': { 'SKILL.md': skillMd('other-name') } } },
+      },
+    })
+    const { result, log } = await run(root)
+    expect(result.actions).toEqual([])
+    expect(log.warnings.join('\n')).toMatch(/frontmatter `name` .* is "other-name" but the directory is named "dir-name"/)
     expect(exists(j(root, '.agents'))).toBe(false)
   })
 
   test('a skill without a frontmatter name is skipped with a warning', async () => {
     const root = makeProject({
-      node_modules: { nameless: { 'package.json': pkgJson('nameless'), skill: { 'SKILL.md': '# no frontmatter' } } },
+      node_modules: {
+        nameless: { 'package.json': pkgJson('nameless'), skills: { nameless: { 'SKILL.md': '# no frontmatter' } } },
+      },
     })
     const { log } = await run(root)
     expect(log.warnings.join('\n')).toMatch(/no `name` in the frontmatter/)
   })
 
-  test('an invalid skill name is skipped with a warning', async () => {
+  test('an invalid skill directory name is skipped with a warning', async () => {
     const root = makeProject({
-      node_modules: { bad: { 'package.json': pkgJson('bad'), skill: { 'SKILL.md': skillMd('Bad Name!') } } },
+      node_modules: {
+        bad: { 'package.json': pkgJson('bad'), skills: { 'Bad Name!': { 'SKILL.md': skillMd('Bad Name!') } } },
+      },
     })
     const { log } = await run(root)
     expect(log.warnings.join('\n')).toMatch(/invalid skill name/)
@@ -98,7 +162,7 @@ describe('enumeration', () => {
 })
 
 describe('materialization', () => {
-  test('the full contents of skill/ are materialized — package files outside it are not', async () => {
+  test('the full contents of skills/<name>/ are materialized — package files outside it are not', async () => {
     const root = makeProject({
       node_modules: {
         'skill-pkg': {
@@ -124,7 +188,7 @@ describe('materialization', () => {
     })
   })
 
-  test('the materialized dir name is the frontmatter name, not the package name', async () => {
+  test('the materialized dir name is the skill name, not the package name', async () => {
     const root = makeProject({
       node_modules: { 'some-npm-name': skillPkg('some-npm-name', 'pretty-name') },
     })
@@ -154,7 +218,7 @@ describe('materialization', () => {
     expect(exists(j(root, '.agents', 'skills', 's', 'old.md'))).toBe(true)
 
     makeTree(j(root, 'node_modules'), { p: skillPkg('p', 's', '2.0.0', { 'new.md': 'new' }) })
-    fs.rmSync(j(root, 'node_modules', 'p', 'skill', 'old.md'))
+    fs.rmSync(j(root, 'node_modules', 'p', 'skills', 's', 'old.md'))
     const { result } = await run(root)
     const skillDir = j(root, '.agents', 'skills', 's')
     expect(result.actions).toContainEqual(expect.objectContaining({ kind: 'updated', skill: 's' }))

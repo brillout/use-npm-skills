@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { analyzeStructure } from './analyze.js'
 import { loadConfig } from './config.js'
-import { enumerateSkillPackages } from './enumerate.js'
+import { enumerateSkills } from './enumerate.js'
 import { isFile, relDisplay } from './fsUtils.js'
 import { Logger } from './logger.js'
 import { listTampered, materializeAll } from './materialize.js'
@@ -45,15 +45,15 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
   }
 
   const config = loadConfig(root, log)
-  const all = enumerateSkillPackages(root, log)
+  const all = enumerateSkills(root, log)
   const excluded = new Set(config.exclude ?? [])
-  const active = all.filter((pkg) => !excluded.has(pkg.name))
+  const active = all.filter((skill) => !excluded.has(skill.package))
 
   const actions: Action[] = []
-  for (const pkg of all) {
-    if (excluded.has(pkg.name)) {
-      log.info(`skipping \`${pkg.name}\` (listed in "exclude" of ${CONFIG_FILE})`)
-      actions.push({ kind: 'excluded', skill: pkg.skillName, package: pkg.name })
+  for (const skill of all) {
+    if (excluded.has(skill.package)) {
+      log.info(`skipping \`${skill.name}\` (\`${skill.package}\` is listed in "exclude" of ${CONFIG_FILE})`)
+      actions.push({ kind: 'excluded', skill: skill.name, package: skill.package })
     }
   }
 

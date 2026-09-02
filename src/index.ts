@@ -10,7 +10,7 @@ export {
   type Analysis,
   type Config,
   type MirrorStyle,
-  type SkillPackage,
+  type PackageSkill,
   type SourceMeta,
   type SyncResult,
 } from './types.js'

@@ -4,7 +4,7 @@ Orchestrates one sync run: resolves the project root, loads the config, enumerat
 
 - **Pipeline order** - read-only steps first, then materialize, then prune; each step's spec carries its own rules.
 - **Preconditions** - no lockfile or no `node_modules/` is a usage error; Yarn PnP is detected and reported as unsupported, doing nothing, exit 0.
-- **Config exclusion** - packages listed in the config's `exclude` are reported as excluded and treated as not installed.
+- **Config exclusion** - packages listed in the config's `exclude` have each of their skills reported as excluded and are treated as not installed.
 - **Result and exit code** - a summary line reports how many skills are in sync and where; exit code 1 if and only if locally modified skills were left untouched.
 
 ## Business logic
@@ -37,11 +37,11 @@ Yarn PnP has no `node_modules/` directory to scan; supporting it is explicitly o
 
 #### User story
 
-The developer wants to keep a skill package installed (e.g. as a transitive requirement or to keep their locally edited copy of its skill) without the tool materializing it.
+The developer wants to keep a skill package installed (e.g. a library they use, or to keep their locally edited copy of its skill) without the tool materializing its skills.
 
 #### Business logic
 
-Each installed skill package whose name is listed in the config file's `exclude` is reported as excluded and otherwise treated exactly as if it were not installed — its skill is not materialized, and an existing materialized copy is handled like that of any uninstalled package: removed if unmodified, kept as the user's own skill if locally edited (see `prune.SPEC.md`).
+Each installed skill package whose name is listed in the config file's `exclude` has each of its skills reported as excluded and is otherwise treated exactly as if it were not installed — none of its skills are materialized, and their existing materialized copies are handled like those of any uninstalled package: removed if unmodified, kept as the user's own skill if locally edited (see `prune.SPEC.md`).
 
 ### Result and exit code
 

@@ -1,4 +1,4 @@
-Writes each skill package's skill into the target skills directories — the only step that creates or overwrites skills. It decides, per skill and per directory, whether to write real files, refresh metadata, create a mirror symlink, or keep its hands off, and it reports one outcome per skill.
+Writes every skill of the installed skill packages into the target skills directories — the only step that creates or overwrites skills. It decides, per skill and per directory, whether to write real files, refresh metadata, create a mirror symlink, or keep its hands off, and it reports one outcome per skill.
 
 ## Glossary
 
@@ -10,7 +10,7 @@ Writes each skill package's skill into the target skills directories — the onl
 
 [4] locally modified: a tool-owned [1] skill whose current content hash no longer matches the hash recorded in its `source.json` [2] — the user edited the materialized copy.
 
-[5] adopt: turn a locally modified [4] skill whose source package is gone into a user-authored [3] skill by deleting only its `source.json` [2]; the user's files stay.
+[5] adopt: turn a locally modified [4] skill that its recorded package no longer provides into a user-authored [3] skill by deleting only its `source.json` [2]; the user's files stay.
 
 [6] primary directory: the one skills directory that holds a skill's real files under the symlink mirror style [7]; the other directories link to it (decided in `analyze.SPEC.md`).
 
@@ -21,7 +21,7 @@ Writes each skill package's skill into the target skills directories — the onl
 - **Ownership via source.json** - `source.json` [2] is the sole ownership marker; user-authored [3] entries always win and are skipped with a warning.
 - **Skill-name collision** - two installed packages providing the same skill name: the first package alphabetically wins, the other is skipped with a warning.
 - **Tamper protection** - a locally modified [4] skill is left completely untouched (warning + non-zero exit), unless the user consents via `--force`.
-- **Adoption before overwrite** - a locally modified skill whose recorded package is no longer installed is adopted [5] instead of overwritten.
+- **Adoption before overwrite** - a locally modified skill that its recorded package no longer provides is adopted [5] instead of overwritten.
 - **Minimal writes** - unchanged content is left alone; a version-only bump refreshes just the metadata; changed content is replaced wholesale (stale files removed).
 - **Mirroring** - real files go to the primary directory [6] (copy style: to every directory); the other directories get relative symlinks, falling back to a copy where a symlink cannot be created.
 
@@ -35,7 +35,7 @@ The developer hand-writes skills in the same skills directories the tool materia
 
 #### Business logic
 
-An entry is tool-owned [1] if and only if it carries a `source.json` [2] — directly, or, for a symlink entry, in the directory the symlink resolves to. Everything else — a hand-written skill directory, a plain file occupying the skill's place, a symlink to user content — is user-authored [3] and always wins: the skill is not written there, and a warning explains that removing the user's entry would let the package's version in. A `source.json` that cannot be parsed still marks the entry as tool-owned, and its unusable contents make the entry count as locally modified [4] with no installed owner — so the entry ends up adopted [5], never deleted. A skill package shipping its own `source.json` inside its `skill/` directory has that file ignored (with a warning): the name is reserved for the tool's metadata.
+An entry is tool-owned [1] if and only if it carries a `source.json` [2] — directly, or, for a symlink entry, in the directory the symlink resolves to. Everything else — a hand-written skill directory, a plain file occupying the skill's place, a symlink to user content — is user-authored [3] and always wins: the skill is not written there, and a warning explains that removing the user's entry would let the package's version in. A `source.json` that cannot be parsed still marks the entry as tool-owned, and its unusable contents make the entry count as locally modified [4] with no installed owner — so the entry ends up adopted [5], never deleted. A skill package shipping its own `source.json` inside a skill's directory (`skills/<name>/source.json`) has that file ignored (with a warning): the name is reserved for the tool's metadata.
 
 #### Rationale
 
@@ -45,7 +45,7 @@ A per-entry marker file survives every workflow (copying skills around, deleting
 
 #### Problem
 
-Two installed skill packages can declare the same skill name, but one directory name can hold only one skill.
+Two installed skill packages can ship a skill of the same name, but one directory name can hold only one skill. (Within a single package, skill names are directory names and therefore unique.)
 
 #### Business logic
 
@@ -65,11 +65,11 @@ A tool-owned [1] skill counts as locally modified [4] when its current content h
 
 #### User story
 
-The tamper warning promises: "to keep your changes, remove the package". Uninstalling the package (or excluding it) must therefore preserve the edited skill.
+The tamper warning promises: "to keep your changes, remove the package". Uninstalling the package — or excluding it, or updating to a version that dropped the skill — must therefore preserve the edited skill.
 
 #### Business logic
 
-Before anything is written, a locally modified [4] entry whose `source.json` [2] records a package that is no longer installed is adopted [5]: only its `source.json` is deleted, a warning says the skill is kept as user-authored, and from then on the entry wins like any user-authored [3] skill — including against a package that provides the same skill name now or later.
+Before anything is written, a locally modified [4] entry whose `source.json` [2] records a package that no longer provides a skill of that name — it was uninstalled, excluded, or no longer ships the skill — is adopted [5]: only its `source.json` is deleted, a warning says the skill is kept as user-authored, and from then on the entry wins like any user-authored [3] skill — including against a package that provides the same skill name now or later.
 
 ### Minimal writes
 

@@ -3,19 +3,19 @@ import path from 'node:path'
 import { hashSkillDir } from './hash.js'
 import { lstatType, readdirSafe, relDisplay, resolveLinkTarget, rmrf } from './fsUtils.js'
 import type { Logger } from './logger.js'
-import { readSourceMeta } from './materialize.js'
-import { SOURCE_JSON, type Action, type SkillPackage } from './types.js'
+import { readSourceMeta, stillProvided } from './materialize.js'
+import { SOURCE_JSON, type Action, type PackageSkill } from './types.js'
 
 /**
- * An orphan = a tool-owned entry (has source.json) whose package no longer
- * materializes it. Pristine ⇒ delete it and its mirror symlinks. Modified ⇒
- * adopt: remove only the source.json, so the dir becomes an ordinary
- * user-authored skill — honoring the tamper message's promise that removing
- * the package keeps your changes.
+ * An orphan = a tool-owned entry (has source.json) whose recorded package no
+ * longer provides it — uninstalled, excluded, or it dropped the skill.
+ * Pristine ⇒ delete it and its mirror symlinks. Modified ⇒ adopt: remove only
+ * the source.json, so the dir becomes an ordinary user-authored skill —
+ * honoring the tamper message's promise that removing the package keeps your
+ * changes.
  */
-export function pruneOrphans(root: string, physicalDirs: string[], active: SkillPackage[], log: Logger): Action[] {
+export function pruneOrphans(root: string, physicalDirs: string[], active: PackageSkill[], log: Logger): Action[] {
   const actions: Action[] = []
-  const skillNameByPackage = new Map(active.map((pkg) => [pkg.name, pkg.skillName]))
   const deleted: string[] = []
   const links: { linkPath: string; target: string }[] = []
 
@@ -31,7 +31,7 @@ export function pruneOrphans(root: string, physicalDirs: string[], active: Skill
       if (type !== 'dir') continue
       const meta = readSourceMeta(entryPath)
       if (!meta) continue // user-authored — not ours to touch
-      if (skillNameByPackage.get(meta.package) === name) continue // still owned
+      if (stillProvided(active, meta.package, name)) continue // still owned
 
       let pristine = false
       try {
@@ -39,16 +39,17 @@ export function pruneOrphans(root: string, physicalDirs: string[], active: Skill
       } catch {
         // unreadable content — count as modified, i.e. adopt rather than delete
       }
+      const owner = `\`${meta.package || '(unknown)'}\``
       if (pristine) {
         rmrf(entryPath)
         deleted.push(entryPath)
-        log.info(`- ${name} removed from ${relDisplay(root, dir)} (\`${meta.package || '(unknown)'}\` is no longer installed)`)
+        log.info(`- ${name} removed from ${relDisplay(root, dir)} (${owner} no longer provides it)`)
         actions.push({ kind: 'removed', skill: name, package: meta.package })
       } else {
         fs.rmSync(path.join(entryPath, SOURCE_JSON), { force: true })
         log.warn(
-          `skill \`${name}\` in ${relDisplay(root, dir)} was modified locally and its package ` +
-            `\`${meta.package || '(unknown)'}\` is no longer installed — kept as a user-authored skill`,
+          `skill \`${name}\` in ${relDisplay(root, dir)} was modified locally and its package ${owner} ` +
+            `no longer provides it — kept as a user-authored skill`,
         )
         actions.push({ kind: 'adopted', skill: name, package: meta.package })
       }

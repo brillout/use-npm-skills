@@ -2,7 +2,7 @@
 
 Install AI-agent [skills](https://agentskills.io) with npm. Instead of copy-pasting `SKILL.md` files into your repo, skills become regular dependencies: versioned, pinned by your lockfile, updated with `npm update`, published and maintained like any package.
 
-Contents: [Using skills](#using-skills) · [Publishing a skill](#publishing-a-skill) · [How it works](#how-it-works) · [FAQ](#faq)
+Contents: [Using skills](#using-skills) · [Publishing skills](#publishing-skills) · [How it works](#how-it-works) · [FAQ](#faq)
 
 ## Using skills
 
@@ -78,17 +78,18 @@ Optional — `.use-npm-skills.json` at the project root:
 ```
 
 - `skillsDirs`: use exactly these dirs instead of auto-detection.
-- `exclude`: ignore an installed skill package (its skill is removed — or kept as yours if you edited it).
+- `exclude`: ignore an installed skill package (its skills are removed — or kept as yours if you edited them).
 
-## Publishing a skill
+## Publishing skills
 
-A skill package is a normal npm package with the skill in a `skill/` directory:
+A skill package is a normal npm package with its skills in a `skills/` directory — one subdirectory per skill, named after the skill:
 
 ```
 skill-awesome-memory/
 ├── package.json
-└── skill/
-    └── SKILL.md
+└── skills/
+    └── awesome-memory/
+        └── SKILL.md
 ```
 
 ```json
@@ -96,7 +97,7 @@ skill-awesome-memory/
   "name": "skill-awesome-memory",
   "version": "1.0.0",
   "keywords": ["use-npm-skills"],
-  "files": ["skill"]
+  "files": ["skills"]
 }
 ```
 
@@ -112,22 +113,46 @@ When you learn something about this project that isn't written down anywhere, ..
 That's it — `npm publish`. Two things matter:
 
 - The **`use-npm-skills` keyword** is what marks your package as a skill package — and lists it in the [npm keyword search](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills) where users go looking for skills.
-- The **frontmatter `name`** becomes the skill's folder name in the user's repo. Lowercase letters, digits, and hyphens.
+- The **directory name** under `skills/` is the skill's name: it becomes the skill's folder name in the user's repo, and the frontmatter `name` must match it (the [agentskills.io](https://agentskills.io/specification) rule). Lowercase letters, digits, and hyphens.
 
 ### Skills with more files
 
-Everything in `skill/` is installed — ship reference docs, scripts, templates next to the `SKILL.md`:
+Everything in the skill's directory is installed — ship reference docs, scripts, templates next to the `SKILL.md`:
 
 ```
 skill-awesome-memory/
 ├── package.json
-└── skill/
-    ├── SKILL.md
-    ├── reference.md
-    └── templates/MEMORY.md
+└── skills/
+    └── awesome-memory/
+        ├── SKILL.md
+        ├── reference.md
+        └── templates/MEMORY.md
 ```
 
-One package ships one skill.
+### Several skills in one package
+
+A package can ship any number of skills — one subdirectory each. That's how a library ships the skills for using it, versioned together with the code they describe:
+
+```
+my-lib/
+├── package.json
+├── dist/
+└── skills/
+    ├── my-lib-setup/
+    │   └── SKILL.md
+    └── my-lib-testing/
+        └── SKILL.md
+```
+
+```json
+{
+  "name": "my-lib",
+  "keywords": ["use-npm-skills"],
+  "files": ["dist", "skills"]
+}
+```
+
+The `skills/` layout is the one [skills-npm](https://github.com/antfu/skills-npm) established, so one package serves both tools.
 
 ### Try it before publishing
 

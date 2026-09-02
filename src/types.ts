@@ -3,15 +3,19 @@ export const CONFIG_FILE = '.use-npm-skills.json'
 export const SOURCE_JSON = 'source.json'
 export const DEFAULT_SKILLS_DIR = '.agents/skills'
 
-/** An installed npm package that ships a skill (in its skill/ directory). */
-export interface SkillPackage {
-  /** npm package name */
+/** A skill shipped by an installed skill package: one subdirectory of the package's skills/ directory. */
+export interface PackageSkill {
+  /**
+   * The skill's name: its directory name under skills/ (matched by its frontmatter `name`),
+   * and its materialized directory name.
+   */
   name: string
-  version: string
-  /** Absolute path of the package inside node_modules (through pnpm symlinks). */
+  /** Absolute path of the skill's directory inside the package (through pnpm symlinks). */
   dir: string
-  /** The skill's frontmatter `name` — also the materialized directory name. */
-  skillName: string
+  /** npm name of the package shipping the skill. */
+  package: string
+  /** That package's version. */
+  version: string
 }
 
 /** Contents of a materialized skill's source.json. */

@@ -3,7 +3,7 @@ Implements the whole product: the `npx use-npm-skills` command and the sync [1] 
 Sync runs as a pipeline; each step is one file:
 
 1. Resolve the project root [2] — `resolveRoot.SPEC.md`
-2. Enumerate the installed skill packages [3] — `enumerate.SPEC.md`
+2. Enumerate the skills of the installed skill packages [3] — `enumerate.SPEC.md`
 3. Determine the target skills directories [4] — `targets.SPEC.md`
 4. Analyze the existing mirroring structure — `analyze.SPEC.md`
 5. Materialize [5] each skill — `materialize.SPEC.md`
@@ -17,11 +17,11 @@ Sync runs as a pipeline; each step is one file:
 
 [2] project root: the directory where skills are installed — the nearest ancestor directory containing a package-manager lockfile.
 
-[3] skill package: an installed npm package marked with `"use-npm-skills"` in its `package.json` `keywords`, shipping exactly one skill.
+[3] skill package: an installed npm package marked with `"use-npm-skills"` in its `package.json` `keywords`, shipping one or more skills, each as a `skills/<name>/` directory.
 
 [4] skills directory: a directory where AI agents look for skills (e.g. `.claude/skills/`, `.agents/skills/`); each skill in it is a subdirectory containing a `SKILL.md`.
 
-[5] materialize: write a skill package's skill into the project's skills directories as real, committed files.
+[5] materialize: write a skill shipped by a skill package [3] into the project's skills directories as real, committed files.
 
 ## Business logic — TL;DR
 
@@ -38,7 +38,7 @@ The developer runs `npx use-npm-skills` after adding, updating, or removing skil
 
 #### Business logic
 
-Sync [1] always runs the full pipeline above, in order, over all installed skill packages [3]. Running it twice in a row changes nothing the second time (it is idempotent). Steps 1–4 only read; steps 5–6 are the only ones that write.
+Sync [1] always runs the full pipeline above, in order, over the skills of all installed skill packages [3]. Running it twice in a row changes nothing the second time (it is idempotent). Steps 1–4 only read; steps 5–6 are the only ones that write.
 
 ### Reported outcome per skill
 

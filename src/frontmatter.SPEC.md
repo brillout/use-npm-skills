@@ -11,7 +11,7 @@ Extracts a skill's name from its `SKILL.md`, and validates it against the agents
 
 #### Problem
 
-The skill's frontmatter `name` names the materialized directory (see `enumerate.SPEC.md`), so it must be read reliably from `SKILL.md` files as they exist in the wild.
+The skill's frontmatter `name` must match the skill's directory name (see `enumerate.SPEC.md`), so it must be read reliably from `SKILL.md` files as they exist in the wild.
 
 #### Business logic
 
@@ -21,7 +21,7 @@ The name is the top-level `name` field of the YAML frontmatter block that opens 
 
 #### Problem
 
-The name becomes a directory name; an unvalidated one could collide with path syntax or escape the skills directory.
+A skill's name is a directory name — in the package and, once materialized, in the project; an unvalidated one could collide with path syntax or escape the skills directory.
 
 #### Business logic
 
