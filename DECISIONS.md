@@ -13,6 +13,9 @@ Resolve project root → enumerate installed skill packages → determine target
 ### Enumerate installed skill packages
 - A skill package = a top-level `node_modules` package with a `skills/` directory holding
   ≥1 subdirectory — the **only** marker.
+- Every subdirectory of `skills/` is a skill, copied as-is — no validation (no `SKILL.md`,
+  frontmatter, or name checks) and no warnings: the tool mirrors packages, it doesn't lint
+  them.
 - Yarn PnP: detect `.pnp.cjs`, print "unsupported", exit 0.
 
 ### Determine target skills dirs
@@ -41,7 +44,7 @@ Resolve project root → enumerate installed skill packages → determine target
 ### Materialize each skill
 - The skill npm package ships its skills in a `skills/` directory, one subdirectory
   per skill (`skills/<name>/`; materialization takes the subdirectory's full contents)
-  — the **only** supported layout. One package = **any number** of skills;
+  — the **only** supported layout. One package = **any number** of skills.
 - Materialized entries are real files meant to be **committed** (nothing is gitignored)
   — requirement: repos must be skill-aware at rest, i.e. an agent reading a fresh clone
   sees every skill before anything is installed. This is why gitignored materialization

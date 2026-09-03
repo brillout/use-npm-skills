@@ -109,7 +109,7 @@ description: Maintain a MEMORY.md of project learnings across sessions.
 When you learn something about this project that isn't written down anywhere, ...
 ```
 
-That's it — `npm publish`. The `skills/` directory is the only marker — no keyword, no manifest field — and it's the layout [skills-npm](https://github.com/antfu/skills-npm) established, so one package serves both tools. One rule: the **directory name** under `skills/` is the skill's name — it becomes the skill's folder name in the user's repo, and the frontmatter `name` must match it (the [agentskills.io](https://agentskills.io/specification) rule). Lowercase letters, digits, and hyphens.
+That's it — `npm publish`. The `skills/` directory is the only marker — no keyword, no manifest field — and it's the layout [skills-npm](https://github.com/antfu/skills-npm) established, so one package serves both tools. The **directory name** under `skills/` becomes the skill's folder name in the user's repo; the [agentskills.io](https://agentskills.io/specification) spec wants the frontmatter `name` to match it (lowercase letters, digits, and hyphens). `use-npm-skills` doesn't validate any of this — each subdirectory is copied as-is.
 
 ### Skills with more files
 

@@ -113,55 +113,30 @@ describe('enumeration', () => {
     expect(fs.readdirSync(j(root, '.agents', 'skills'))).toEqual(['my-lib-setup', 'my-lib-testing'])
   })
 
-  test('files in skills/ are ignored; a subdirectory without SKILL.md is skipped with a warning, siblings still sync', async () => {
+  test('every subdirectory of skills/ is copied as-is: nothing is validated, nothing is warned about', async () => {
     const root = makeProject({
       node_modules: {
         p: {
           'package.json': pkgJson('p'),
           skills: {
-            'README.md': 'about these skills',
+            'README.md': 'files directly in skills/ are ignored',
             good: skillDir('good'),
-            shared: { 'helper.md': 'no SKILL.md' },
+            'no-skill-md': { 'helper.md': 'no SKILL.md here' },
+            'dir-name': { 'SKILL.md': skillMd('other-name') },
+            nameless: { 'SKILL.md': '# no frontmatter' },
+            'Bad Name!': skillDir('Bad Name!'),
           },
         },
       },
     })
     const { result, log } = await run(root)
-    expect(result.actions).toMatchObject([{ kind: 'added', skill: 'good' }])
-    expect(log.warnings.join('\n')).toMatch(/skills\/shared\/ has no SKILL\.md/)
-    expect(fs.readdirSync(j(root, '.agents', 'skills'))).toEqual(['good'])
-  })
-
-  test('a frontmatter name that differs from the directory name is skipped with a warning', async () => {
-    const root = makeProject({
-      node_modules: {
-        p: { 'package.json': pkgJson('p'), skills: { 'dir-name': { 'SKILL.md': skillMd('other-name') } } },
-      },
-    })
-    const { result, log } = await run(root)
-    expect(result.actions).toEqual([])
-    expect(log.warnings.join('\n')).toMatch(/frontmatter `name` .* is "other-name" but the directory is named "dir-name"/)
-    expect(exists(j(root, '.agents'))).toBe(false)
-  })
-
-  test('a skill without a frontmatter name is skipped with a warning', async () => {
-    const root = makeProject({
-      node_modules: {
-        nameless: { 'package.json': pkgJson('nameless'), skills: { nameless: { 'SKILL.md': '# no frontmatter' } } },
-      },
-    })
-    const { log } = await run(root)
-    expect(log.warnings.join('\n')).toMatch(/no `name` in the frontmatter/)
-  })
-
-  test('an invalid skill directory name is skipped with a warning', async () => {
-    const root = makeProject({
-      node_modules: {
-        bad: { 'package.json': pkgJson('bad'), skills: { 'Bad Name!': { 'SKILL.md': skillMd('Bad Name!') } } },
-      },
-    })
-    const { log } = await run(root)
-    expect(log.warnings.join('\n')).toMatch(/invalid skill name/)
+    const all = ['Bad Name!', 'dir-name', 'good', 'nameless', 'no-skill-md']
+    expect(log.warnings).toEqual([])
+    expect(result.actions.map((a) => a.skill)).toEqual(all)
+    expect(fs.readdirSync(j(root, '.agents', 'skills')).sort()).toEqual(all)
+    expect(read(j(root, '.agents', 'skills', 'no-skill-md', 'helper.md'))).toBe('no SKILL.md here')
+    expect(read(j(root, '.agents', 'skills', 'dir-name', 'SKILL.md'))).toBe(skillMd('other-name'))
+    expect(exists(j(root, '.agents', 'skills', 'README.md'))).toBe(false)
   })
 })
 

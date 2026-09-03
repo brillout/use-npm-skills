@@ -9,7 +9,7 @@ Sync runs as a pipeline; each step is one file:
 5. Materialize [5] each skill — `materialize.SPEC.md`
 6. Prune orphaned skills — `prune.SPEC.md`
 
-`sync.SPEC.md` describes the orchestration of these steps; `cli.SPEC.md` the command-line interface on top. Supporting files: `config.SPEC.md` (the `.use-npm-skills.json` config file), `hash.SPEC.md` (skill content identity), `frontmatter.SPEC.md` (skill naming), `gitSymlinks.SPEC.md` (Windows: is Git symlink support available?), `index.SPEC.md` (library entry point), `types.SPEC.md` (shared vocabulary), `logger.SPEC.md` and `fsUtils.SPEC.md` (infrastructure).
+`sync.SPEC.md` describes the orchestration of these steps; `cli.SPEC.md` the command-line interface on top. Supporting files: `config.SPEC.md` (the `.use-npm-skills.json` config file), `hash.SPEC.md` (skill content identity), `gitSymlinks.SPEC.md` (Windows: is Git symlink support available?), `index.SPEC.md` (library entry point), `types.SPEC.md` (shared vocabulary), `logger.SPEC.md` and `fsUtils.SPEC.md` (infrastructure).
 
 ## Glossary
 

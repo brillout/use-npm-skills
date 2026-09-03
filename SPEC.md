@@ -19,7 +19,7 @@ The repository has two top-level subsystems:
 
 ## Glossary
 
-[1] skill package: an npm package that ships one or more skills, each a `skills/<name>/` directory containing a `SKILL.md` (the agentskills.io convention). The `skills/` directory is the only marker — there is no keyword or manifest field — so any package following the antfu/skills-npm convention is a skill package. A dedicated skill package ships one skill; a library can ship the skills for using it alongside its code.
+[1] skill package: an npm package that ships one or more skills, each a subdirectory of its `skills/` directory (by the agentskills.io convention, one holding a `SKILL.md`). The `skills/` directory is the only marker — there is no keyword or manifest field — so any package following the antfu/skills-npm convention is a skill package. A dedicated skill package ships one skill; a library can ship the skills for using it alongside its code.
 
 [2] materialize: write a skill shipped by a skill package [1] into the project's skills directories as real files meant to be committed.
 

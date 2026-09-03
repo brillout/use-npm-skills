@@ -45,7 +45,7 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
   }
 
   const config = loadConfig(root, log)
-  const all = enumerateSkills(root, log)
+  const all = enumerateSkills(root)
   const excluded = new Set(config.exclude ?? [])
   const active = all.filter((skill) => !excluded.has(skill.package))
 

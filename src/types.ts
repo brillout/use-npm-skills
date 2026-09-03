@@ -4,10 +4,7 @@ export const DEFAULT_SKILLS_DIR = '.agents/skills'
 
 /** A skill shipped by an installed skill package: one subdirectory of the package's skills/ directory. */
 export interface PackageSkill {
-  /**
-   * The skill's name: its directory name under skills/ (matched by its frontmatter `name`),
-   * and its materialized directory name.
-   */
+  /** The skill's name: its directory name under skills/, and its materialized directory name. */
   name: string
   /** Absolute path of the skill's directory inside the package (through pnpm symlinks). */
   dir: string
