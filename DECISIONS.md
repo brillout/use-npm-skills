@@ -13,6 +13,11 @@ Resolve project root → enumerate installed skill packages → determine target
 ### Enumerate installed skill packages
 - A skill package = a top-level `node_modules` package with a `skills/` directory holding
   ≥1 subdirectory — the **only** marker.
+- Every `node_modules/` in the repo tree is crawled — root first, then by path; never one
+  nested inside another (a dependency's own tree), never `.git/`, symlinks not followed —
+  because pnpm installs a workspace package's deps in that package's own `node_modules/`
+  ([skills-npm#34](https://github.com/antfu/skills-npm/issues/34)). Same package in
+  several ⇒ the first copy that ships skills wins.
 - Every subdirectory of `skills/` is a skill, copied as-is — no validation (no `SKILL.md`,
   frontmatter, or name checks) and no warnings: the tool mirrors packages, it doesn't lint
   them.

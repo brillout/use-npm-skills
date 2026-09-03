@@ -138,6 +138,47 @@ describe('enumeration', () => {
     expect(read(j(root, '.agents', 'skills', 'dir-name', 'SKILL.md'))).toBe(skillMd('other-name'))
     expect(exists(j(root, '.agents', 'skills', 'README.md'))).toBe(false)
   })
+
+  test('every node_modules/ in the repo is crawled, root first then by path, but not one nested inside a package', async () => {
+    const root = makeProject({
+      node_modules: { p1: { ...skillPkg('p1', 's1'), node_modules: { p4: skillPkg('p4', 's4') } } },
+      packages: { a: { node_modules: { p2: skillPkg('p2', 's2') } } },
+      apps: { deep: { web: { node_modules: { p3: skillPkg('p3', 's3') } } } },
+    })
+    const { result } = await run(root)
+    expect(result.actions.map((a) => a.skill)).toEqual(['s1', 's3', 's2'])
+    expect(exists(j(root, '.agents', 'skills', 's4'))).toBe(false)
+  })
+
+  test("a repo whose only node_modules/ is a workspace package's still works", async () => {
+    const root = makeProject({ packages: { a: { node_modules: { p: skillPkg('p', 's') } } } })
+    const { result } = await run(root)
+    expect(result.actions).toMatchObject([{ kind: 'added', skill: 's', package: 'p' }])
+  })
+
+  test('a package present in several node_modules/ counts once: the first copy that ships skills wins', async () => {
+    const root = makeProject({
+      node_modules: {
+        p: skillPkg('p', 's', '1.0.0', { 'SKILL.md': skillMd('s', 'from root') }),
+        q: { 'package.json': pkgJson('q', '1.0.0') }, // ships no skills here…
+      },
+      packages: {
+        a: {
+          node_modules: {
+            p: skillPkg('p', 's', '2.0.0', { 'SKILL.md': skillMd('s', 'from packages/a') }),
+            q: skillPkg('q', 'q-skill', '2.0.0'), // …but here
+          },
+        },
+      },
+    })
+    const { result } = await run(root)
+    expect(result.actions.map((a) => [a.kind, a.skill])).toEqual([
+      ['added', 's'],
+      ['added', 'q-skill'],
+    ])
+    expect(read(j(root, '.agents', 'skills', 's', 'SKILL.md'))).toContain('from root')
+    expect(readSource(j(root, '.agents', 'skills', 's')).version).toBe('1.0.0')
+  })
 })
 
 describe('materialization', () => {

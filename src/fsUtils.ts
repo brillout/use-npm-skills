@@ -46,6 +46,15 @@ export function readdirSafe(p: string): string[] {
   }
 }
 
+/** Like readdirSafe, with entry types (a symlink reports as a symlink, not as what it points to). */
+export function readdirEntriesSafe(p: string): fs.Dirent[] {
+  try {
+    return fs.readdirSync(p, { withFileTypes: true })
+  } catch {
+    return []
+  }
+}
+
 /** Resolve a symlink one hop, without requiring the target to exist. */
 export function resolveLinkTarget(linkPath: string): string | null {
   try {

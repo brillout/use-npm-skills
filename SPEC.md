@@ -42,7 +42,7 @@ Skill author, Library author, Developer (see `## User stories`).
 
 #### Business logic
 
-A skill package [1] is any installed npm dependency with a `skills/` directory holding at least one subdirectory. Each subdirectory is a skill, and everything an npm package supports — semver ranges, lockfile pinning, `npm update`, deprecation — applies to the skills unchanged.
+A skill package [1] is any installed npm dependency — of the repository root or of any workspace package in it — with a `skills/` directory holding at least one subdirectory. Each subdirectory is a skill, and everything an npm package supports — semver ranges, lockfile pinning, `npm update`, deprecation — applies to the skills unchanged.
 
 #### Rationale
 
