@@ -32,7 +32,7 @@ With `--force`, the command first lists every locally modified skill whose chang
 
 #### Problem
 
-Errors caused by the environment or by how the tool is used (no lockfile, invalid config) are the user's to fix; a stack trace would only obscure the message.
+Errors caused by the environment or by how the tool is used (not inside a Git repository, invalid config) are the user's to fix; a stack trace would only obscure the message.
 
 #### Business logic
 

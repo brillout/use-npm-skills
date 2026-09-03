@@ -6,7 +6,7 @@ import { isFile, relDisplay } from './fsUtils.js'
 import { Logger } from './logger.js'
 import { listTampered, materializeAll } from './materialize.js'
 import { pruneOrphans } from './prune.js'
-import { resolveGitRoot, resolveProjectRoot } from './resolveRoot.js'
+import { resolveProjectRoot } from './resolveRoot.js'
 import { discoverTargetDirs } from './targets.js'
 import { CONFIG_FILE, UsageError, type Action, type SyncResult } from './types.js'
 
@@ -30,14 +30,10 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
   const force = options.force ?? false
   const cwd = path.resolve(options.cwd ?? process.cwd())
 
-  const resolved = resolveProjectRoot(cwd)
-  if (!resolved) {
-    throw new UsageError(
-      "no lockfile found in this directory or any parent — run your package manager's install first " +
-        '(use-npm-skills installs skills at the project root, next to the lockfile)',
-    )
+  const root = resolveProjectRoot(cwd)
+  if (!root) {
+    throw new UsageError('not inside a Git repository — use-npm-skills installs skills at the repository root')
   }
-  const { root } = resolved
 
   if (isFile(path.join(root, '.pnp.cjs')) || isFile(path.join(root, '.pnp.js'))) {
     log.info('Yarn PnP detected — unsupported (use-npm-skills needs a node_modules/ directory); nothing to do')
@@ -45,7 +41,7 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
   }
 
   const config = loadConfig(root, log)
-  const all = enumerateSkills(resolveGitRoot(root) ?? root)
+  const all = enumerateSkills(root)
   const excluded = new Set(config.exclude ?? [])
   const active = all.filter((skill) => !excluded.has(skill.package))
 

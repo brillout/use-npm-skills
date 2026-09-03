@@ -1,39 +1,24 @@
-Determines the project root — the directory where skills are installed — and the Git repository root, where the search for installed packages starts.
+Determines the project root — the directory where skills are installed, where the config file lives, and where the search for installed packages starts: the Git repository root.
 
 ## Business logic — TL;DR
 
-- **Nearest lockfile wins** - the project root is the nearest ancestor directory containing a package-manager lockfile; in monorepos, the workspace root.
-- **The Git repository root starts the crawl** - the nearest ancestor of the project root containing a `.git` entry; without one, the project root itself.
+- **The Git repository root is the project root** - the nearest ancestor of the working directory containing a `.git` entry; not being inside a Git repository is a usage error.
 
 ## Business logic
 
-### Nearest lockfile wins
+### The Git repository root is the project root
 
 #### User story
 
-A developer in a monorepo runs `npx use-npm-skills` from any workspace package and expects skills to land at the repository's workspace root, because skills apply repo-wide.
+A developer whose JavaScript workspace lives in a subdirectory of the repository — a `node/` directory holding the lockfile and `node_modules/`, say — or who works in a monorepo runs `npx use-npm-skills` from anywhere in the repository and expects the skills to land where their agents look for them: the repository root's skills directories.
 
 #### Business logic
 
-Starting from the current working directory, walk up towards the filesystem root; the first directory containing a package-manager lockfile (npm's `package-lock.json` or `npm-shrinkwrap.json`, pnpm's `pnpm-lock.yaml`, Yarn's `yarn.lock`, Bun's `bun.lock` or `bun.lockb`) is the project root. In monorepos that is the workspace root. If no directory up to the filesystem root contains a lockfile, there is no project (the caller reports a usage error).
+Starting from the current working directory, walk up towards the filesystem root; the first directory containing a `.git` entry — a directory, or a file as in Git worktrees and submodules — is the project root. If no directory up to the filesystem root contains one, the working directory is not inside a Git repository and the caller reports a usage error. Where the package manager's lockfile or `node_modules/` live plays no role.
 
 #### Rationale
 
-Skills apply repo-wide and should therefore be installed at the monorepo root; the lockfile is the marker that is always present exactly there after an install, for every supported package manager.
-
-### The Git repository root starts the crawl
-
-#### User story
-
-A developer whose Git repository holds several JavaScript projects — say a `frontend/` with its own lockfile next to a `tools/` project — expects the skills shipped by any of their dependencies to be found, whichever project they run the tool from.
-
-#### Business logic
-
-Starting from the project root, walk up towards the filesystem root; the first directory containing a `.git` entry — a directory, or a file as in Git worktrees and submodules — is the Git repository root, and the search for installed packages (`enumerate.SPEC.md`) starts there. When no ancestor contains a `.git` entry, the search starts at the project root.
-
-#### Rationale
-
-The search covers the entire Git repository, not just the lockfile's project: a repository can hold several projects, and skills from any of them count. Skills are still installed at the project root, where the lockfile is.
+Agents read their skills directories (`.claude/skills/`, `.agents/skills/`, …) at the repository root, whatever directory the JavaScript project's lockfile lives in — a workspace nested in a subdirectory is common ([antfu/skills-npm#38](https://github.com/antfu/skills-npm/issues/38)); and materialized skills are meant to be committed, which presupposes a repository.
 
 ## Before modifying/creating SPEC.md files
 

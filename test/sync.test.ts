@@ -18,9 +18,9 @@ import {
 } from './helpers.js'
 
 describe('root resolution', () => {
-  test('errors without a lockfile', async () => {
+  test('errors outside a Git repository', async () => {
     const root = makeProject()
-    fs.rmSync(j(root, 'package-lock.json'))
+    fs.rmSync(j(root, '.git'), { recursive: true })
     await expect(run(root)).rejects.toThrow(UsageError)
   })
 
@@ -29,34 +29,30 @@ describe('root resolution', () => {
     await expect(run(root)).rejects.toThrow(/node_modules/)
   })
 
-  test('walks up to the lockfile (monorepo workspace root)', async () => {
+  test('walks up to the Git repo root from a workspace package', async () => {
     const root = makeProject({
-      'pnpm-lock.yaml': '',
       node_modules: { 'my-skill-pkg': skillPkg('my-skill-pkg', 'my-skill') },
       packages: { app: { 'package.json': '{}' } },
     })
-    fs.rmSync(j(root, 'package-lock.json'))
     const { result } = await run(j(root, 'packages', 'app'))
     expect(result.root).toBe(root)
     expect(exists(j(root, '.agents', 'skills', 'my-skill', 'SKILL.md'))).toBe(true)
   })
 
-  test('the package crawl starts at the Git repo root, above the project root; skills still land at the project root', async () => {
-    const gitRoot = makeProject({
-      '.git': {},
-      frontend: { 'package-lock.json': '{}', node_modules: { p1: skillPkg('p1', 's1') } },
+  test('the Git repo root is the root even when the lockfile and node_modules/ live in a subdirectory', async () => {
+    const root = makeProject({
+      node: { 'package-lock.json': '{}', node_modules: { p1: skillPkg('p1', 's1') } },
       tools: { node_modules: { p2: skillPkg('p2', 's2') } },
     })
-    fs.rmSync(j(gitRoot, 'package-lock.json'))
-    const { result } = await run(j(gitRoot, 'frontend'))
-    expect(result.root).toBe(j(gitRoot, 'frontend'))
+    const { result } = await run(j(root, 'node'))
+    expect(result.root).toBe(root)
     expect(result.actions.map((a) => a.skill)).toEqual(['s1', 's2'])
-    expect(exists(j(gitRoot, 'frontend', '.agents', 'skills', 's2', 'SKILL.md'))).toBe(true)
-    expect(exists(j(gitRoot, '.agents'))).toBe(false)
+    expect(exists(j(root, '.agents', 'skills', 's1', 'SKILL.md'))).toBe(true)
+    expect(exists(j(root, 'node', '.agents'))).toBe(false)
   })
 
   test('Yarn PnP is unsupported: exit 0, nothing done', async () => {
-    const root = makeProject({ 'yarn.lock': '', '.pnp.cjs': '' })
+    const root = makeProject({ '.pnp.cjs': '' })
     const { result } = await run(root)
     expect(result.exitCode).toBe(0)
     expect(exists(j(root, '.agents'))).toBe(false)

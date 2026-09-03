@@ -6,22 +6,21 @@ import { UsageError, type PackageSkill } from './types.js'
  * A skill package = a top-level package of any `node_modules/` in the repo
  * with a `skills/` directory holding at least one subdirectory — the
  * directory is the only marker (antfu/skills-npm's rule), so a package built
- * for skills-npm works as-is. Every `node_modules/` under `crawlRoot` (the
- * Git repo root, or the project root outside a Git repo) is crawled — the
- * crawl root's own first, then the others by path — because a workspace
- * package's deps are installed in its own `node_modules/` (pnpm never hoists
- * them; antfu/skills-npm#34). A `node_modules/` nested inside another is a
+ * for skills-npm works as-is. Every `node_modules/` under the root (the Git
+ * repo root) is crawled — the root's own first, then the others by path —
+ * because a workspace package's deps are installed in its own `node_modules/`
+ * (pnpm never hoists them; antfu/skills-npm#34). A `node_modules/` nested inside another is a
  * dependency's own tree and is not crawled. The same package in several of
  * them counts once: the first copy that ships skills wins. Every subdirectory
  * of `skills/` is a skill, taken as-is: nothing is validated and nothing is
  * warned about. The result is sorted by node_modules dir, package name, then
  * skill name, which makes every later "first one wins" rule deterministic.
  */
-export function enumerateSkills(crawlRoot: string): PackageSkill[] {
-  const nodeModulesDirs = findNodeModulesDirs(crawlRoot)
+export function enumerateSkills(root: string): PackageSkill[] {
+  const nodeModulesDirs = findNodeModulesDirs(root)
   if (nodeModulesDirs.length === 0) {
     throw new UsageError(
-      `no node_modules/ found in ${crawlRoot} or below — install your dependencies first, then re-run \`npx use-npm-skills\``,
+      `no node_modules/ found in ${root} or below — install your dependencies first, then re-run \`npx use-npm-skills\``,
     )
   }
 

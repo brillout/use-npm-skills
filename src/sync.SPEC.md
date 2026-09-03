@@ -3,7 +3,7 @@ Orchestrates one sync run: resolves the project root, loads the config, enumerat
 ## Business logic — TL;DR
 
 - **Pipeline order** - read-only steps first, then materialize, then prune; each step's spec carries its own rules.
-- **Preconditions** - no lockfile or no `node_modules/` is a usage error; Yarn PnP is detected and reported as unsupported, doing nothing, exit 0.
+- **Preconditions** - not being inside a Git repository, or no `node_modules/` anywhere in it, is a usage error; Yarn PnP is detected and reported as unsupported, doing nothing, exit 0.
 - **Config exclusion** - packages listed in the config's `exclude` have each of their skills reported as excluded and are treated as not installed.
 - **Result and exit code** - a summary line reports how many skills are in sync and where; exit code 1 if and only if locally modified skills were left untouched.
 
@@ -23,11 +23,11 @@ A run executes exactly: resolve project root (`resolveRoot.SPEC.md`) → load co
 
 #### Problem
 
-Without a lockfile there is no project root, and without `node_modules/` there is nothing to enumerate — the tool cannot guess what the user meant.
+Without a Git repository there is no root to install skills at, and without `node_modules/` there is nothing to enumerate — the tool cannot guess what the user meant.
 
 #### Business logic
 
-No lockfile in the working directory or any ancestor is a usage error telling the user to run their package manager's install first. A project using Yarn Plug'n'Play (a `.pnp.cjs` or `.pnp.js` file at the project root) is unsupported: the run reports this, does nothing, and exits 0.
+A working directory that is not inside a Git repository is a usage error saying that skills are installed at the repository root; a repository with no `node_modules/` anywhere is a usage error telling the user to run their package manager's install first (`enumerate.SPEC.md`). A project using Yarn Plug'n'Play (a `.pnp.cjs` or `.pnp.js` file at the project root) is unsupported: the run reports this, does nothing, and exits 0.
 
 #### Rationale
 

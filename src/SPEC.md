@@ -2,7 +2,7 @@ Implements the whole product: the `npx use-npm-skills` command and the sync [1] 
 
 Sync runs as a pipeline; each step is one file:
 
-1. Resolve the project root [2] and the Git repository root — `resolveRoot.SPEC.md`
+1. Resolve the project root [2] — `resolveRoot.SPEC.md`
 2. Enumerate the skills of the installed skill packages [3] — `enumerate.SPEC.md`
 3. Determine the target skills directories [4] — `targets.SPEC.md`
 4. Analyze the existing mirroring structure — `analyze.SPEC.md`
@@ -15,7 +15,7 @@ Sync runs as a pipeline; each step is one file:
 
 [1] sync: the tool's one and only action — materialize the skills of all installed skill packages into the project's skills directories and prune the skills of packages that were removed.
 
-[2] project root: the directory where skills are installed — the nearest ancestor directory containing a package-manager lockfile.
+[2] project root: the directory where skills are installed — the Git repository root, i.e. the nearest ancestor of the working directory containing a `.git` entry.
 
 [3] skill package: an installed npm package shipping one or more skills, each as a `skills/<name>/` directory — the `skills/` directory is the only marker.
 

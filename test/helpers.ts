@@ -19,10 +19,10 @@ export function makeTree(dir: string, tree: Tree): void {
   }
 }
 
-/** A temp project root with a lockfile (npm by default). */
+/** A temp Git repository root (a bare `.git` entry marks it). */
 export function makeProject(tree: Tree = {}): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'use-npm-skills-test-'))
-  makeTree(root, { 'package-lock.json': '{}', ...tree })
+  makeTree(root, { '.git': {}, ...tree })
   return fs.realpathSync(root)
 }
 
