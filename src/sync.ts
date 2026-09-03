@@ -6,7 +6,7 @@ import { isFile, relDisplay } from './fsUtils.js'
 import { Logger } from './logger.js'
 import { listTampered, materializeAll } from './materialize.js'
 import { pruneOrphans } from './prune.js'
-import { resolveProjectRoot } from './resolveRoot.js'
+import { resolveGitRoot, resolveProjectRoot } from './resolveRoot.js'
 import { discoverTargetDirs } from './targets.js'
 import { CONFIG_FILE, UsageError, type Action, type SyncResult } from './types.js'
 
@@ -45,7 +45,7 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
   }
 
   const config = loadConfig(root, log)
-  const all = enumerateSkills(root)
+  const all = enumerateSkills(resolveGitRoot(root) ?? root)
   const excluded = new Set(config.exclude ?? [])
   const active = all.filter((skill) => !excluded.has(skill.package))
 

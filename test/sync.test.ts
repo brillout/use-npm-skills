@@ -41,6 +41,20 @@ describe('root resolution', () => {
     expect(exists(j(root, '.agents', 'skills', 'my-skill', 'SKILL.md'))).toBe(true)
   })
 
+  test('the package crawl starts at the Git repo root, above the project root; skills still land at the project root', async () => {
+    const gitRoot = makeProject({
+      '.git': {},
+      frontend: { 'package-lock.json': '{}', node_modules: { p1: skillPkg('p1', 's1') } },
+      tools: { node_modules: { p2: skillPkg('p2', 's2') } },
+    })
+    fs.rmSync(j(gitRoot, 'package-lock.json'))
+    const { result } = await run(j(gitRoot, 'frontend'))
+    expect(result.root).toBe(j(gitRoot, 'frontend'))
+    expect(result.actions.map((a) => a.skill)).toEqual(['s1', 's2'])
+    expect(exists(j(gitRoot, 'frontend', '.agents', 'skills', 's2', 'SKILL.md'))).toBe(true)
+    expect(exists(j(gitRoot, '.agents'))).toBe(false)
+  })
+
   test('Yarn PnP is unsupported: exit 0, nothing done', async () => {
     const root = makeProject({ 'yarn.lock': '', '.pnp.cjs': '' })
     const { result } = await run(root)

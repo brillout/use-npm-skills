@@ -2,7 +2,7 @@ Implements the whole product: the `npx use-npm-skills` command and the sync [1] 
 
 Sync runs as a pipeline; each step is one file:
 
-1. Resolve the project root [2] — `resolveRoot.SPEC.md`
+1. Resolve the project root [2] and the Git repository root — `resolveRoot.SPEC.md`
 2. Enumerate the skills of the installed skill packages [3] — `enumerate.SPEC.md`
 3. Determine the target skills directories [4] — `targets.SPEC.md`
 4. Analyze the existing mirroring structure — `analyze.SPEC.md`

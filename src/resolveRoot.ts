@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { isFile } from './fsUtils.js'
+import { isFile, lstatType } from './fsUtils.js'
 
 const LOCKFILES = [
   'package-lock.json',
@@ -23,5 +23,20 @@ export function resolveProjectRoot(cwd: string): { root: string; lockfile: strin
     const parent = path.dirname(dir)
     if (parent === dir) return null
     dir = parent
+  }
+}
+
+/**
+ * Walk up from `dir` to the nearest directory containing a `.git` entry — a
+ * directory, or a file as in Git worktrees and submodules. The package crawl
+ * starts there: the whole Git repo counts, not just the lockfile's project.
+ */
+export function resolveGitRoot(dir: string): string | null {
+  let current = path.resolve(dir)
+  while (true) {
+    if (lstatType(path.join(current, '.git')) !== 'missing') return current
+    const parent = path.dirname(current)
+    if (parent === current) return null
+    current = parent
   }
 }
