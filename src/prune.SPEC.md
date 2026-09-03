@@ -1,8 +1,8 @@
-Removes orphans [1]: skills the tool materialized whose skill package is no longer installed (or no longer provides them).
+Removes orphans [1]: tool-owned skills the caller disowns — for a sync, the skills whose package is no longer installed or no longer provides them; for `uninstall-package` (`hooks.SPEC.md`), the skills of that one package.
 
 ## Glossary
 
-[1] orphan: a tool-owned skill entry (it carries a `source.json`) whose recorded package no longer materializes a skill of that name — the package was uninstalled, excluded in the config file, or no longer ships a skill of that name (it renamed or dropped the skill).
+[1] orphan: a tool-owned skill entry (it carries a `source.json`) that the caller disowns: for a sync, one whose recorded package no longer materializes a skill of that name — the package was uninstalled, excluded in the config file, or no longer ships a skill of that name (it renamed or dropped the skill); for `uninstall-package`, one recorded as coming from the package being uninstalled.
 
 [2] adopt: turn a locally modified orphan [1] into a user-authored skill by deleting only its `source.json`; the user's files stay.
 

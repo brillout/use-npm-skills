@@ -30,22 +30,25 @@ export function enumerateSkills(root: string): PackageSkill[] {
     for (const name of listPackages(nodeModules)) {
       if (seen.has(name)) continue
       const dir = path.join(nodeModules, ...name.split('/'))
-      // Every subdirectory of skills/ is a skill; files directly in skills/ are ignored.
-      const skillsDir = path.join(dir, 'skills')
-      const skillNames = readdirSafe(skillsDir)
-        .filter((entry) => isDirectory(path.join(skillsDir, entry)))
-        .sort()
-      if (skillNames.length === 0) continue // not a skill package
       const pkgJson = readJsonSafe(path.join(dir, 'package.json')) as Record<string, unknown> | null
       if (!pkgJson) continue // not an npm package
-      seen.add(name)
       const version = typeof pkgJson.version === 'string' ? pkgJson.version : '0.0.0'
-      for (const skillName of skillNames) {
-        skills.push({ name: skillName, dir: path.join(skillsDir, skillName), package: name, version })
-      }
+      const packageSkillList = packageSkills(dir, name, version)
+      if (packageSkillList.length === 0) continue // not a skill package
+      seen.add(name)
+      skills.push(...packageSkillList)
     }
   }
   return skills
+}
+
+/** The skills a package at `dir` ships: one per subdirectory of its skills/ (files directly in skills/ are ignored), by name. */
+function packageSkills(dir: string, packageName: string, version: string): PackageSkill[] {
+  const skillsDir = path.join(dir, 'skills')
+  return readdirSafe(skillsDir)
+    .filter((entry) => isDirectory(path.join(skillsDir, entry)))
+    .sort()
+    .map((name) => ({ name, dir: path.join(skillsDir, name), package: packageName, version }))
 }
 
 /**

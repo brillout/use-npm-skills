@@ -83,10 +83,34 @@ Resolve project root → enumerate installed skill packages → determine target
   becomes an ordinary user-authored skill, honoring the tamper message's promise that
   removing the package keeps your changes.
 
+## Flow: package hooks (`install-package` / `uninstall-package`, run by a skill package's own `postinstall` / `uninstall` scripts)
+- Optional for skill packages (without them: tell users to run `npx use-npm-skills`); the tool
+  itself still ships zero lifecycle scripts.
+- Package = the script's cwd (`package.json` name); project = the dir above the outermost
+  `node_modules/` (pnpm runs scripts in `node_modules/.pnpm/…`), then the normal root resolution.
+  Its skills = what the crawl finds for it from the root, not cwd's `skills/`: PMs link every
+  dependency before running any postinstall (measured on npm and pnpm), and cwd would install
+  skills the next sync prunes (pnpm transitive deps, the package's own repo — whose
+  `npm install` runs its postinstall too ⇒ nothing installed there).
+- `install-package` installs that **one** package's skills — never touches other packages'
+  entries or symlinks — then reports (never fixes) what a full sync would change for them:
+  missing, outdated, left over, modified locally. Rationale: catch bad states as early as
+  possible.
+- Never fail a local install: a failing postinstall aborts the install and skips the other
+  packages' postinstalls — the ones that would install the missing skills ⇒ deadlock. Errors
+  are printed, exit 0. `CI` env var set (≠ `false`) ⇒ exit 1: CI runs on a fresh checkout (the
+  check is exact there) and should be red on a stale skills dir. Locally the report is
+  best-effort: PMs mostly hide a dependency's script output unless it fails (npm:
+  `--foreground-scripts`).
+- `uninstall-package` removes that one package's skills (pristine ⇒ delete + mirror links;
+  modified ⇒ adopt). Not every PM runs uninstall scripts (npm ≥7, pnpm) — accepted; the next
+  sync or install-package report catches leftovers.
+
 ## Cross-flow
 - **Fully explicit by design — the tool ships zero lifecycle scripts and never installs
-  hooks.** Run `npx use-npm-skills` after adding/updating/removing skill packages (the
-  `prisma generate` model). Rationale, so nobody re-adds a postinstall "for
+  hooks** (skill packages may opt into their own, see the package-hooks flow). Run
+  `npx use-npm-skills` after adding/updating/removing skill packages (the `prisma generate`
+  model). Rationale, so nobody re-adds a postinstall "for
   convenience": package-manager lifecycle events are structurally unreliable (measured:
   dependency postinstalls are blocked by default on pnpm/Bun and don't re-run on skill
   updates on npm; no PM fires anything on uninstall; targeted `npm update` /

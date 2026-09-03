@@ -36,7 +36,7 @@ Requires Node 18+.
 
 ### Updating and removing skills
 
-`use-npm-skills` never runs by itself — no postinstall hooks, on purpose ([why?](#faq)). Whenever you add, update, or remove skill packages, run it again:
+`use-npm-skills` itself never runs by itself — it installs no hooks ([why?](#faq)). Skill packages can opt into running it for you on install ([how](#automatic-installation)); for the ones that don't, and after removing a package (few package managers run uninstall scripts), run it again:
 
 ```shell
 npm update skill-awesome-memory    && npx use-npm-skills   # update a skill
@@ -147,6 +147,25 @@ my-lib/
 }
 ```
 
+### Automatic installation
+
+Optionally, let your package install its skills by itself:
+
+```json
+{
+  "name": "skill-awesome-memory",
+  "dependencies": { "use-npm-skills": "^0.1.0" },
+  "scripts": {
+    "postinstall": "use-npm-skills install-package",
+    "uninstall": "use-npm-skills uninstall-package"
+  }
+}
+```
+
+`install-package` installs your package's skills — and nothing else — when your package is installed. It also checks the other installed skill packages and prints an error for every skill a run of `npx use-npm-skills` would change (missing, outdated, left over, edited), so a stale skills directory is caught at the next install. It never fails a local install (a failing `postinstall` would abort the whole install), but it does fail when the `CI` environment variable is set, so CI goes red. `uninstall-package` removes your package's skills — where the package manager runs uninstall scripts (npm 7+ and pnpm don't; the next `npx use-npm-skills` cleans up).
+
+Three caveats: pnpm and Bun don't run dependencies' scripts until the user approves them; most package managers only show a dependency's script output when the script fails (npm needs `--foreground-scripts`), so locally the report is easy to miss and CI is where it reliably bites; and without the hooks your users simply run `npx use-npm-skills` after installing — say so in your README.
+
 ### Try it before publishing
 
 Install your package into a scratch project straight from disk:
@@ -161,7 +180,7 @@ npx use-npm-skills
 - Installed skills are real, committed files. Nothing is gitignored, and nothing in your repo points into `node_modules` — a fresh clone is fully skill-aware before anyone runs anything.
 - Every installed skill carries a `source.json`: which package and version it came from, plus a content hash. The hash is how local edits are detected (line-ending changes from Git's `autocrlf` don't count). No `source.json` = your skill, hands off.
 - Symlinks are only ever created between skills dirs — relative, so they survive cloning to any path.
-- The tool has zero install hooks and zero runtime dependencies.
+- The tool itself has zero install hooks and zero runtime dependencies.
 - The exit code is non-zero when locally-modified skills were found — handy in CI to catch drift.
 
 The full design rationale lives in [DECISIONS.md](./DECISIONS.md).
@@ -169,7 +188,7 @@ The full design rationale lives in [DECISIONS.md](./DECISIONS.md).
 ## FAQ
 
 **Why doesn't it run automatically on `npm install`?**
-Because package managers make that unreliable: pnpm and Bun block dependency postinstall scripts by default, npm doesn't re-fire them on updates, and nothing at all runs on uninstall. Automation that works half the time is worse than a command you can trust — so, like `prisma generate`, you run `npx use-npm-skills` explicitly. Bonus: a package with no scripts is one your supply-chain scanner and your security team don't need to worry about.
+`use-npm-skills` itself has no install hook because package managers make that unreliable: pnpm and Bun block dependency postinstall scripts by default, npm doesn't re-fire them on updates, and hardly anything runs on uninstall. Automation that works half the time is worse than a command you can trust — so, like `prisma generate`, you run `npx use-npm-skills` explicitly. Skill packages can opt into hooks that call `use-npm-skills install-package` ([see above](#automatic-installation)) for their own skills; the explicit command stays the one that brings everything in sync. Bonus: a package with no scripts is one your supply-chain scanner and your security team don't need to worry about.
 
 **Why install `use-npm-skills` itself?**
 So `npx` runs your local copy: the tool that writes your skills is pinned by your lockfile like everything else — the whole team and CI sync with the same version, instead of `npx` prompting to download whatever the latest release happens to be.

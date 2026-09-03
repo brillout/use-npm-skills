@@ -1,6 +1,7 @@
 export class Logger {
   infos: string[] = []
   warnings: string[] = []
+  errors: string[] = []
 
   constructor(private quiet = false) {}
 
@@ -12,5 +13,10 @@ export class Logger {
   warn(msg: string): void {
     this.warnings.push(msg)
     if (!this.quiet) console.warn(`Warning: ${msg}`)
+  }
+
+  error(msg: string): void {
+    this.errors.push(msg)
+    if (!this.quiet) console.error(`Error: ${msg}`)
   }
 }

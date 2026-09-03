@@ -24,6 +24,8 @@ Writes every skill of the installed skill packages into the target skills direct
 - **Adoption before overwrite** - a locally modified skill that its recorded package no longer provides is adopted [5] instead of overwritten.
 - **Minimal writes** - unchanged content is left alone; a version-only bump refreshes just the metadata; changed content is replaced wholesale (stale files removed).
 - **Mirroring** - real files go to the primary directory [6] (copy style: to every directory); the other directories get relative symlinks, falling back to a copy where a symlink cannot be created.
+- **One package at a time, on request** - the `install-package` command writes a single package's skills, with name collisions still decided over all installed skills.
+- **Sync status** - a skill is in sync when its primary directory [6] holds its pristine, current files and every mirror is the expected link; user-authored content in the way counts as in sync.
 
 ## Business logic
 
@@ -90,6 +92,26 @@ Several agents each read their own skills directory, but the skill must exist on
 #### Business logic
 
 Under the symlink mirror style [7], real files are written only to the primary directory [6]; every other target directory gets a per-skill relative symlink to the primary entry (existing correct links are kept; dangling or wrong ones are replaced; a real tool-owned copy standing where a link belongs is replaced by a link). Under the copy style, real files are written to every physical directory. Where a symlink cannot be created (e.g. missing permissions on Windows), a copy is written instead, with a warning. When user-authored [3] content blocks the primary directory under the symlink style, no mirrors are created for that skill.
+
+### One package at a time, on request
+
+#### User story
+
+The `install-package` command (`hooks.SPEC.md`) runs from one package's lifecycle script and must install that package's skills without touching any other package's.
+
+#### Business logic
+
+When asked to write a single package's skills, every other installed package's skills are still walked to decide name collisions exactly as a full run would — a skill name claimed by an alphabetically earlier package is still that package's — but nothing is written, reported, or warned about for them.
+
+### Sync status
+
+#### Problem
+
+The `install-package` command reports other packages' skills that a full sync would change, without changing them; it needs the same judgement the writing step makes, read-only.
+
+#### Business logic
+
+A skill is in sync when, in every directory that holds real files (the primary directory [6], or every physical directory under the copy style), its entry is tool-owned [1], pristine, and records the skill's package, version, and current content hash, and, under the symlink mirror style [7], every other directory's entry is a symlink resolving to the primary entry. Otherwise it is missing (no entry, or a dangling link), outdated (a different package, version, or content; a link where real files belong or a copy where a link belongs), or modified locally [4]. User-authored [3] content standing in its way counts as in sync — a full sync leaves it alone, and creates no mirrors when it blocks the primary directory.
 
 ## Before modifying/creating SPEC.md files
 
