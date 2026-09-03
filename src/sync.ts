@@ -8,7 +8,7 @@ import { listTampered, materializeAll } from './materialize.js'
 import { pruneOrphans } from './prune.js'
 import { resolveProjectRoot } from './resolveRoot.js'
 import { discoverTargetDirs } from './targets.js'
-import { CONFIG_FILE, UsageError, type Action, type SyncResult } from './types.js'
+import { CONFIG_FILE, type Action, type SyncResult } from './types.js'
 
 export interface SyncOptions {
   cwd?: string
@@ -30,14 +30,7 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
   const force = options.force ?? false
   const cwd = path.resolve(options.cwd ?? process.cwd())
 
-  const resolved = resolveProjectRoot(cwd)
-  if (!resolved) {
-    throw new UsageError(
-      "no lockfile found in this directory or any parent — run your package manager's install first " +
-        '(use-npm-skills installs skills at the project root, next to the lockfile)',
-    )
-  }
-  const { root } = resolved
+  const root = resolveProjectRoot(cwd)
 
   if (isFile(path.join(root, '.pnp.cjs')) || isFile(path.join(root, '.pnp.js'))) {
     log.info('Yarn PnP detected — unsupported (use-npm-skills needs a node_modules/ directory); nothing to do')

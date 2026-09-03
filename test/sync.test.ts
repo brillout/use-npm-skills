@@ -1,6 +1,5 @@
 import fs from 'node:fs'
 import { describe, expect, test } from 'vitest'
-import { UsageError } from '../src/types.js'
 import {
   exists,
   isLink,
@@ -18,10 +17,25 @@ import {
 } from './helpers.js'
 
 describe('root resolution', () => {
-  test('errors without a lockfile', async () => {
-    const root = makeProject()
-    fs.rmSync(j(root, 'package-lock.json'))
-    await expect(run(root)).rejects.toThrow(UsageError)
+  test("outside a Git repository, the nearest lockfile's directory is the root", async () => {
+    const root = makeProject({
+      'pnpm-lock.yaml': '',
+      node_modules: { p: skillPkg('p', 's') },
+      packages: { app: { 'package.json': '{}' } },
+    })
+    fs.rmSync(j(root, '.git'), { recursive: true })
+    const { result } = await run(j(root, 'packages', 'app'))
+    expect(result.root).toBe(root)
+    expect(exists(j(root, '.agents', 'skills', 's', 'SKILL.md'))).toBe(true)
+  })
+
+  test('outside a Git repository and without a lockfile, the working directory is the root', async () => {
+    const root = makeProject({ sub: { node_modules: { p: skillPkg('p', 's') } } })
+    fs.rmSync(j(root, '.git'), { recursive: true })
+    const { result } = await run(j(root, 'sub'))
+    expect(result.root).toBe(j(root, 'sub'))
+    expect(exists(j(root, 'sub', '.agents', 'skills', 's', 'SKILL.md'))).toBe(true)
+    expect(exists(j(root, '.agents'))).toBe(false)
   })
 
   test('errors without node_modules', async () => {
@@ -29,20 +43,30 @@ describe('root resolution', () => {
     await expect(run(root)).rejects.toThrow(/node_modules/)
   })
 
-  test('walks up to the lockfile (monorepo workspace root)', async () => {
+  test('walks up to the Git repo root from a workspace package', async () => {
     const root = makeProject({
-      'pnpm-lock.yaml': '',
       node_modules: { 'my-skill-pkg': skillPkg('my-skill-pkg', 'my-skill') },
       packages: { app: { 'package.json': '{}' } },
     })
-    fs.rmSync(j(root, 'package-lock.json'))
     const { result } = await run(j(root, 'packages', 'app'))
     expect(result.root).toBe(root)
     expect(exists(j(root, '.agents', 'skills', 'my-skill', 'SKILL.md'))).toBe(true)
   })
 
+  test('the Git repo root is the root even when the lockfile and node_modules/ live in a subdirectory', async () => {
+    const root = makeProject({
+      node: { 'package-lock.json': '{}', node_modules: { p1: skillPkg('p1', 's1') } },
+      tools: { node_modules: { p2: skillPkg('p2', 's2') } },
+    })
+    const { result } = await run(j(root, 'node'))
+    expect(result.root).toBe(root)
+    expect(result.actions.map((a) => a.skill)).toEqual(['s1', 's2'])
+    expect(exists(j(root, '.agents', 'skills', 's1', 'SKILL.md'))).toBe(true)
+    expect(exists(j(root, 'node', '.agents'))).toBe(false)
+  })
+
   test('Yarn PnP is unsupported: exit 0, nothing done', async () => {
-    const root = makeProject({ 'yarn.lock': '', '.pnp.cjs': '' })
+    const root = makeProject({ '.pnp.cjs': '' })
     const { result } = await run(root)
     expect(result.exitCode).toBe(0)
     expect(exists(j(root, '.agents'))).toBe(false)
@@ -137,6 +161,47 @@ describe('enumeration', () => {
     expect(read(j(root, '.agents', 'skills', 'no-skill-md', 'helper.md'))).toBe('no SKILL.md here')
     expect(read(j(root, '.agents', 'skills', 'dir-name', 'SKILL.md'))).toBe(skillMd('other-name'))
     expect(exists(j(root, '.agents', 'skills', 'README.md'))).toBe(false)
+  })
+
+  test('every node_modules/ in the repo is crawled, root first then by path, but not one nested inside a package', async () => {
+    const root = makeProject({
+      node_modules: { p1: { ...skillPkg('p1', 's1'), node_modules: { p4: skillPkg('p4', 's4') } } },
+      packages: { a: { node_modules: { p2: skillPkg('p2', 's2') } } },
+      apps: { deep: { web: { node_modules: { p3: skillPkg('p3', 's3') } } } },
+    })
+    const { result } = await run(root)
+    expect(result.actions.map((a) => a.skill)).toEqual(['s1', 's3', 's2'])
+    expect(exists(j(root, '.agents', 'skills', 's4'))).toBe(false)
+  })
+
+  test("a repo whose only node_modules/ is a workspace package's still works", async () => {
+    const root = makeProject({ packages: { a: { node_modules: { p: skillPkg('p', 's') } } } })
+    const { result } = await run(root)
+    expect(result.actions).toMatchObject([{ kind: 'added', skill: 's', package: 'p' }])
+  })
+
+  test('a package present in several node_modules/ counts once: the first copy that ships skills wins', async () => {
+    const root = makeProject({
+      node_modules: {
+        p: skillPkg('p', 's', '1.0.0', { 'SKILL.md': skillMd('s', 'from root') }),
+        q: { 'package.json': pkgJson('q', '1.0.0') }, // ships no skills here…
+      },
+      packages: {
+        a: {
+          node_modules: {
+            p: skillPkg('p', 's', '2.0.0', { 'SKILL.md': skillMd('s', 'from packages/a') }),
+            q: skillPkg('q', 'q-skill', '2.0.0'), // …but here
+          },
+        },
+      },
+    })
+    const { result } = await run(root)
+    expect(result.actions.map((a) => [a.kind, a.skill])).toEqual([
+      ['added', 's'],
+      ['added', 'q-skill'],
+    ])
+    expect(read(j(root, '.agents', 'skills', 's', 'SKILL.md'))).toContain('from root')
+    expect(readSource(j(root, '.agents', 'skills', 's')).version).toBe('1.0.0')
   })
 })
 

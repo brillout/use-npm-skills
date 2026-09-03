@@ -7,12 +7,20 @@ Resolve project root → enumerate installed skill packages → determine target
 → analyze existing structure → materialize each skill → prune orphaned skills.
 
 ### Resolve project root
-- Walk up to the nearest lockfile (⇒ the workspace root in monorepos — by design:
-  "skills apply repo-wide and should therefore be installed at the monorepo root").
+- Root = the Git repo root (nearest `.git` — dir or file — walking up from cwd): agents
+  read their skills dirs at the repo root, and a JS workspace can live in a subdirectory
+  ([skills-npm#38](https://github.com/antfu/skills-npm/issues/38)). Not in a Git repo ⇒
+  the nearest lockfile's dir; none either ⇒ cwd. Skills dirs, config, and the package
+  crawl all hang off it.
 
 ### Enumerate installed skill packages
 - A skill package = a top-level `node_modules` package with a `skills/` directory holding
   ≥1 subdirectory — the **only** marker.
+- Every `node_modules/` under the root is crawled — the root's own first, then by path; never one
+  nested inside another (a dependency's own tree), never `.git/`, symlinks not followed —
+  because pnpm installs a workspace package's deps in that package's own `node_modules/`
+  ([skills-npm#34](https://github.com/antfu/skills-npm/issues/34)). Same package in
+  several ⇒ the first copy that ships skills wins.
 - Every subdirectory of `skills/` is a skill, copied as-is — no validation (no `SKILL.md`,
   frontmatter, or name checks) and no warnings: the tool mirrors packages, it doesn't lint
   them.
