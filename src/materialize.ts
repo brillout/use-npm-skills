@@ -3,7 +3,7 @@ import path from 'node:path'
 import { hashFileMap, hashSkillDir, readDirFiles } from './hash.js'
 import { isFile, lstatType, readJsonSafe, realpathSafe, relDisplay, rmrf, toPosix, writeFileMap } from './fsUtils.js'
 import type { Logger } from './logger.js'
-import { SOURCE_JSON, type Action, type Analysis, type SkillPackage, type SourceMeta } from './types.js'
+import { SOURCE_JSON, type Action, type Analysis, type PackageSkill, type SourceMeta } from './types.js'
 
 export type EntryState =
   | { type: 'missing' }
@@ -55,14 +55,25 @@ export function readSourceMeta(dir: string): SourceMeta | null {
   }
 }
 
-/** The files a package's skill materializes to: the full contents of its skill/ directory. */
-export function readPackageSkillFiles(pkg: SkillPackage, log: Logger): Map<string, Buffer> {
-  const files = readDirFiles(path.join(pkg.dir, 'skill'))
+/** The files a skill materializes to: the full contents of its directory in the package. */
+export function readSkillFiles(skill: PackageSkill, log: Logger): Map<string, Buffer> {
+  const files = readDirFiles(skill.dir)
   if (files.has(SOURCE_JSON)) {
     files.delete(SOURCE_JSON)
-    log.warn(`package \`${pkg.name}\`: skill/ ships a ${SOURCE_JSON} — ignored (reserved for use-npm-skills metadata)`)
+    log.warn(
+      `package \`${skill.package}\`: skills/${skill.name}/ ships a ${SOURCE_JSON} — ignored ` +
+        `(reserved for use-npm-skills metadata)`,
+    )
   }
   return files
+}
+
+/**
+ * Whether the installed skill package `pkgName` still ships a skill named
+ * `skillName` — i.e. still owns a materialized entry recorded as coming from it.
+ */
+export function stillProvided(active: PackageSkill[], pkgName: string, skillName: string): boolean {
+  return active.some((skill) => skill.package === pkgName && skill.name === skillName)
 }
 
 export function writeSkill(entryPath: string, files: Map<string, Buffer>, meta: SourceMeta): void {
@@ -83,17 +94,16 @@ export function tamperMessage(skillName: string, pkgName: string): string {
 }
 
 /** Skills whose local changes `--force` would overwrite — for listing/prompting before execution. */
-export function listTampered(active: SkillPackage[], analysis: Analysis): { skill: string; package: string }[] {
-  const activeNames = new Set(active.map((pkg) => pkg.name))
+export function listTampered(active: PackageSkill[], analysis: Analysis): { skill: string; package: string }[] {
   const claimed = new Set<string>()
   const tampered: { skill: string; package: string }[] = []
-  for (const pkg of active) {
-    if (claimed.has(pkg.skillName)) continue
-    claimed.add(pkg.skillName)
+  for (const skill of active) {
+    if (claimed.has(skill.name)) continue
+    claimed.add(skill.name)
     for (const dir of analysis.physicalDirs) {
-      const state = classifyEntry(path.join(dir, pkg.skillName))
-      if (state.type === 'owned-dir' && !state.pristine && activeNames.has(state.meta.package)) {
-        tampered.push({ skill: pkg.skillName, package: pkg.name })
+      const state = classifyEntry(path.join(dir, skill.name))
+      if (state.type === 'owned-dir' && !state.pristine && stillProvided(active, state.meta.package, skill.name)) {
+        tampered.push({ skill: skill.name, package: skill.package })
         break
       }
     }
@@ -103,7 +113,7 @@ export function listTampered(active: SkillPackage[], analysis: Analysis): { skil
 
 export interface MaterializeContext {
   root: string
-  active: SkillPackage[]
+  active: PackageSkill[]
   analysis: Analysis
   force: boolean
   confirmOverwrite: (skillName: string, pkgName: string) => Promise<boolean> | boolean
@@ -115,47 +125,50 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
   const actions: Action[] = []
   let anyTamperedKept = false
   const claimed = new Map<string, string>()
-  const activeNames = new Set(active.map((pkg) => pkg.name))
   const rel = (p: string) => relDisplay(root, p)
 
-  for (const pkg of active) {
+  for (const skill of active) {
     // Skill-name collision between two installed packages: first alphabetically wins.
-    const claimedBy = claimed.get(pkg.skillName)
+    const claimedBy = claimed.get(skill.name)
     if (claimedBy) {
       log.warn(
-        `skill name \`${pkg.skillName}\` is provided by both \`${claimedBy}\` and \`${pkg.name}\` — ` +
-          `keeping \`${claimedBy}\`, skipping \`${pkg.name}\``,
+        `skill name \`${skill.name}\` is provided by both \`${claimedBy}\` and \`${skill.package}\` — ` +
+          `keeping \`${claimedBy}\`, skipping \`${skill.package}\``,
       )
-      actions.push({ kind: 'skipped-collision', skill: pkg.skillName, package: pkg.name })
+      actions.push({ kind: 'skipped-collision', skill: skill.name, package: skill.package })
       continue
     }
-    claimed.set(pkg.skillName, pkg.name)
+    claimed.set(skill.name, skill.package)
 
     let files: Map<string, Buffer>
     try {
-      files = readPackageSkillFiles(pkg, log)
+      files = readSkillFiles(skill, log)
     } catch (err) {
-      log.warn(`package \`${pkg.name}\`: cannot read its skill files (${(err as Error).message}) — skipping`)
+      log.warn(
+        `package \`${skill.package}\`: cannot read the files of skill \`${skill.name}\` (${(err as Error).message}) — skipping`,
+      )
       continue
     }
     const desiredHash = hashFileMap(files)
-    const meta: SourceMeta = { package: pkg.name, version: pkg.version, hash: desiredHash }
+    const meta: SourceMeta = { package: skill.package, version: skill.version, hash: desiredHash }
 
     const realDests = analysis.style === 'copy' ? analysis.physicalDirs : [analysis.primaryDir]
     const linkDests = analysis.style === 'copy' ? [] : analysis.physicalDirs.filter((d) => d !== analysis.primaryDir)
 
     // ---- Plan: classify every destination before touching anything.
     const states = new Map<string, EntryState>()
-    for (const dir of [...realDests, ...linkDests]) states.set(dir, classifyEntry(path.join(dir, pkg.skillName)))
+    for (const dir of [...realDests, ...linkDests]) states.set(dir, classifyEntry(path.join(dir, skill.name)))
 
-    // A modified entry whose owning package is gone is adopted (source.json
-    // removed) — it becomes an ordinary user-authored skill and wins below.
+    // A modified entry that its recorded package no longer provides (uninstalled,
+    // excluded, or it dropped the skill) is adopted (source.json removed) — it
+    // becomes an ordinary user-authored skill and wins below.
     for (const [dir, state] of states) {
-      if (state.type === 'owned-dir' && !state.pristine && !activeNames.has(state.meta.package)) {
-        fs.rmSync(path.join(dir, pkg.skillName, SOURCE_JSON), { force: true })
+      if (state.type !== 'owned-dir' || state.pristine) continue
+      if (!stillProvided(active, state.meta.package, skill.name)) {
+        fs.rmSync(path.join(dir, skill.name, SOURCE_JSON), { force: true })
         log.warn(
-          `skill \`${pkg.skillName}\` in ${rel(dir)} was modified locally and its package ` +
-            `\`${state.meta.package || '(unknown)'}\` is no longer installed — kept as a user-authored skill`,
+          `skill \`${skill.name}\` in ${rel(dir)} was modified locally and its package ` +
+            `\`${state.meta.package || '(unknown)'}\` no longer provides it — kept as a user-authored skill`,
         )
         states.set(dir, { type: 'user-dir' })
       }
@@ -167,15 +180,15 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
     )
     let forcedOverwrite = false
     if (tamperedStates.length > 0) {
-      const owner = tamperedStates[0].meta.package || pkg.name
-      const consented = force ? await ctx.confirmOverwrite(pkg.skillName, owner) : false
+      const owner = tamperedStates[0].meta.package || skill.package
+      const consented = force ? await ctx.confirmOverwrite(skill.name, owner) : false
       if (!consented) {
         if (force) {
-          log.info(`kept the local changes of skill \`${pkg.skillName}\``)
-          actions.push({ kind: 'kept', skill: pkg.skillName, package: pkg.name })
+          log.info(`kept the local changes of skill \`${skill.name}\``)
+          actions.push({ kind: 'kept', skill: skill.name, package: skill.package })
         } else {
-          log.warn(tamperMessage(pkg.skillName, owner))
-          actions.push({ kind: 'tampered', skill: pkg.skillName, package: pkg.name })
+          log.warn(tamperMessage(skill.name, owner))
+          actions.push({ kind: 'tampered', skill: skill.name, package: skill.package })
           anyTamperedKept = true
         }
         continue // leave the whole skill untouched
@@ -186,8 +199,8 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
     // ---- Execute: real destinations.
     const skippedUserOwned = (dir: string) => {
       log.warn(
-        `skill \`${pkg.skillName}\` in ${rel(dir)} is user-authored (no ${SOURCE_JSON}) — ` +
-          `skipping (package \`${pkg.name}\`); remove it if you want the package's version`,
+        `skill \`${skill.name}\` in ${rel(dir)} is user-authored (no ${SOURCE_JSON}) — ` +
+          `skipping (package \`${skill.package}\`); remove it if you want the package's version`,
       )
     }
     const writtenDirs: string[] = []
@@ -197,7 +210,7 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
 
     for (const dir of realDests) {
       const state = states.get(dir)!
-      const entryPath = path.join(dir, pkg.skillName)
+      const entryPath = path.join(dir, skill.name)
       if (state.type === 'missing') {
         writeSkill(entryPath, files, meta)
         writtenDirs.push(dir)
@@ -215,11 +228,11 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
           writtenDirs.push(dir)
         } else if (
           state.meta.hash === desiredHash &&
-          state.meta.package === pkg.name &&
-          state.meta.version === pkg.version
+          state.meta.package === skill.package &&
+          state.meta.version === skill.version
         ) {
           writtenDirs.push(dir) // up-to-date
-        } else if (state.meta.hash === desiredHash && state.meta.package === pkg.name) {
+        } else if (state.meta.hash === desiredHash && state.meta.package === skill.package) {
           writeSourceJson(entryPath, meta) // same content, new version — refresh metadata only
           writtenDirs.push(dir)
           anyChanged = true
@@ -238,7 +251,7 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
 
     // ---- Execute: mirror symlinks (symlink style only).
     if (!primaryBlocked) {
-      const primaryEntry = path.join(analysis.primaryDir, pkg.skillName)
+      const primaryEntry = path.join(analysis.primaryDir, skill.name)
       const makeLink = (mirrorDir: string, linkPath: string) => {
         fs.mkdirSync(mirrorDir, { recursive: true })
         const target = toPosix(path.relative(mirrorDir, primaryEntry))
@@ -252,7 +265,7 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
       }
       for (const dir of linkDests) {
         const state = states.get(dir)!
-        const linkPath = path.join(dir, pkg.skillName)
+        const linkPath = path.join(dir, skill.name)
         if (state.type === 'missing') {
           makeLink(dir, linkPath)
         } else if (state.type === 'dangling-link') {
@@ -276,24 +289,24 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
 
     // ---- Report.
     if (writtenDirs.length === 0) {
-      actions.push({ kind: 'skipped-user-owned', skill: pkg.skillName, package: pkg.name })
+      actions.push({ kind: 'skipped-user-owned', skill: skill.name, package: skill.package })
       continue
     }
     const where = writtenDirs.map(rel).join(', ')
     if (forcedOverwrite) {
       log.info(
-        `overwrote the local changes of skill \`${pkg.skillName}\` (${pkg.name}@${pkg.version}) — consider ` +
-          `removing \`${pkg.name}\` — or adding it to \`exclude\` — if you want to keep your changes`,
+        `overwrote the local changes of skill \`${skill.name}\` (${skill.package}@${skill.version}) — consider ` +
+          `removing \`${skill.package}\` — or adding it to \`exclude\` — if you want to keep your changes`,
       )
-      actions.push({ kind: 'forced', skill: pkg.skillName, package: pkg.name, detail: where })
+      actions.push({ kind: 'forced', skill: skill.name, package: skill.package, detail: where })
     } else if (anyAdded) {
-      log.info(`+ ${pkg.skillName} (${pkg.name}@${pkg.version}) → ${where}`)
-      actions.push({ kind: 'added', skill: pkg.skillName, package: pkg.name, detail: where })
+      log.info(`+ ${skill.name} (${skill.package}@${skill.version}) → ${where}`)
+      actions.push({ kind: 'added', skill: skill.name, package: skill.package, detail: where })
     } else if (anyChanged) {
-      log.info(`~ ${pkg.skillName} (${pkg.name}@${pkg.version}) updated in ${where}`)
-      actions.push({ kind: 'updated', skill: pkg.skillName, package: pkg.name, detail: where })
+      log.info(`~ ${skill.name} (${skill.package}@${skill.version}) updated in ${where}`)
+      actions.push({ kind: 'updated', skill: skill.name, package: skill.package, detail: where })
     } else {
-      actions.push({ kind: 'up-to-date', skill: pkg.skillName, package: pkg.name, detail: where })
+      actions.push({ kind: 'up-to-date', skill: skill.name, package: skill.package, detail: where })
     }
   }
 

@@ -2,7 +2,7 @@ Removes orphans [1]: skills the tool materialized whose skill package is no long
 
 ## Glossary
 
-[1] orphan: a tool-owned skill entry (it carries a `source.json`) whose recorded package no longer materializes a skill of that name — the package was uninstalled, excluded in the config file, or renamed its skill.
+[1] orphan: a tool-owned skill entry (it carries a `source.json`) whose recorded package no longer materializes a skill of that name — the package was uninstalled, excluded in the config file, or no longer ships a skill of that name (it renamed or dropped the skill).
 
 [2] adopt: turn a locally modified orphan [1] into a user-authored skill by deleting only its `source.json`; the user's files stay.
 
@@ -21,7 +21,7 @@ The developer uninstalls a skill package and expects the next `npx use-npm-skill
 
 #### Business logic
 
-In every physical skills directory, a tool-owned entry whose recorded package no longer materializes a skill of that name is an orphan [1]. An orphan whose content hash still matches its `source.json` is pristine and is deleted, along with every symlink in the other skills directories that points into it. User-authored entries (no `source.json`) are never candidates.
+In every physical skills directory, a tool-owned entry whose recorded package no longer materializes a skill of that name is an orphan [1] — for a package shipping several skills, only the skills it dropped are orphans; the ones it still ships stay. An orphan whose content hash still matches its `source.json` is pristine and is deleted, along with every symlink in the other skills directories that points into it. User-authored entries (no `source.json`) are never candidates.
 
 ### Modified orphans are adopted
 

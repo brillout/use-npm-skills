@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import { describe, expect, test } from 'vitest'
 import { UsageError } from '../src/types.js'
-import { exists, isLink, j, makeProject, read, run, skillPkg } from './helpers.js'
+import { exists, isLink, j, makeProject, pkgJson, read, run, skillDir, skillPkg } from './helpers.js'
 
 describe('.use-npm-skills.json', () => {
   test('exclude: the package is skipped and its pristine skill pruned', async () => {
@@ -67,5 +67,17 @@ describe('.use-npm-skills.json', () => {
     })
     const { log } = await run(root)
     expect(log.warnings.join('\n')).toMatch(/unknown key "skillsDir"/)
+  })
+
+  test('exclude covers every skill of the package', async () => {
+    const root = makeProject({
+      node_modules: { lib: { 'package.json': pkgJson('lib'), skills: { a: skillDir('a'), b: skillDir('b') } } },
+    })
+    await run(root)
+    fs.writeFileSync(j(root, '.use-npm-skills.json'), JSON.stringify({ exclude: ['lib'] }))
+    const { result } = await run(root)
+    expect(result.actions.filter((a) => a.kind === 'excluded').map((a) => a.skill)).toEqual(['a', 'b'])
+    expect(result.actions.filter((a) => a.kind === 'removed').map((a) => a.skill)).toEqual(['a', 'b'])
+    expect(fs.readdirSync(j(root, '.agents', 'skills'))).toEqual([])
   })
 })

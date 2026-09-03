@@ -3,51 +3,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
-import { isValidSkillName, parseFrontmatterName } from '../src/frontmatter.js'
 import { detectGitSymlinkSupport } from '../src/gitSymlinks.js'
 import { hashFileMap } from '../src/hash.js'
-
-describe('parseFrontmatterName', () => {
-  test('basic', () => {
-    expect(parseFrontmatterName('---\nname: my-skill\ndescription: x\n---\n# Hi')).toBe('my-skill')
-  })
-  test('quoted values', () => {
-    expect(parseFrontmatterName('---\nname: "my-skill"\n---\n')).toBe('my-skill')
-    expect(parseFrontmatterName("---\nname: 'my-skill'\n---\n")).toBe('my-skill')
-  })
-  test('BOM and CRLF', () => {
-    expect(parseFrontmatterName('\uFEFF---\r\nname: my-skill\r\n---\r\nbody')).toBe('my-skill')
-  })
-  test('frontmatter at EOF without trailing newline', () => {
-    expect(parseFrontmatterName('---\nname: my-skill\n---')).toBe('my-skill')
-  })
-  test('no frontmatter', () => {
-    expect(parseFrontmatterName('# Just a title\nname: nope')).toBe(null)
-  })
-  test('frontmatter without name', () => {
-    expect(parseFrontmatterName('---\ndescription: x\n---\n')).toBe(null)
-  })
-  test('does not match indented or nested name keys', () => {
-    expect(parseFrontmatterName('---\nmeta:\n  name: nested\n---\n')).toBe(null)
-  })
-})
-
-describe('isValidSkillName', () => {
-  test('accepts spec names', () => {
-    expect(isValidSkillName('my-skill')).toBe(true)
-    expect(isValidSkillName('a')).toBe(true)
-    expect(isValidSkillName('skill2')).toBe(true)
-  })
-  test('rejects invalid names', () => {
-    expect(isValidSkillName('My-Skill')).toBe(false)
-    expect(isValidSkillName('-skill')).toBe(false)
-    expect(isValidSkillName('skill-')).toBe(false)
-    expect(isValidSkillName('a/b')).toBe(false)
-    expect(isValidSkillName('..')).toBe(false)
-    expect(isValidSkillName('')).toBe(false)
-    expect(isValidSkillName('x'.repeat(65))).toBe(false)
-  })
-})
 
 describe('detectGitSymlinkSupport', () => {
   // Hermetic: point Git's global/system config at a nonexistent file so only

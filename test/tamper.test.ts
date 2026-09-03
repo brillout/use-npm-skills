@@ -1,6 +1,19 @@
 import fs from 'node:fs'
 import { describe, expect, test } from 'vitest'
-import { exists, isLink, j, makeProject, read, readSource, run, skillMd, skillPkg } from './helpers.js'
+import {
+  exists,
+  isLink,
+  j,
+  makeProject,
+  makeTree,
+  pkgJson,
+  read,
+  readSource,
+  run,
+  skillDir,
+  skillMd,
+  skillPkg,
+} from './helpers.js'
 
 const twoTargets = {
   '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
@@ -87,7 +100,7 @@ describe('tamper protection', () => {
 })
 
 function makeTreeUpdate(root: string) {
-  fs.writeFileSync(j(root, 'node_modules', 'p2', 'skill', 'SKILL.md'), skillMd('s2', 'v2'))
+  fs.writeFileSync(j(root, 'node_modules', 'p2', 'skills', 's2', 'SKILL.md'), skillMd('s2', 'v2'))
 }
 
 describe('user-authored skills always win', () => {
@@ -144,5 +157,21 @@ describe('pruning', () => {
     const { result } = await run(root)
     expect(result.actions).toContainEqual(expect.objectContaining({ kind: 'skipped-user-owned', skill: 's' }))
     expect(read(j(root, '.agents', 'skills', 's', 'SKILL.md'))).toContain('my tweak')
+  })
+
+  test('a skill dropped by a new version of its package is removed, its siblings kept', async () => {
+    const root = makeProject({
+      node_modules: { lib: { 'package.json': pkgJson('lib', '1.0.0'), skills: { a: skillDir('a'), b: skillDir('b') } } },
+    })
+    await run(root)
+    expect(fs.readdirSync(j(root, '.agents', 'skills'))).toEqual(['a', 'b'])
+
+    makeTree(j(root, 'node_modules'), { lib: { 'package.json': pkgJson('lib', '2.0.0') } })
+    fs.rmSync(j(root, 'node_modules', 'lib', 'skills', 'b'), { recursive: true })
+    const { result } = await run(root)
+    expect(result.actions).toContainEqual(expect.objectContaining({ kind: 'updated', skill: 'a', package: 'lib' }))
+    expect(result.actions).toContainEqual(expect.objectContaining({ kind: 'removed', skill: 'b', package: 'lib' }))
+    expect(fs.readdirSync(j(root, '.agents', 'skills'))).toEqual(['a'])
+    expect(readSource(j(root, '.agents', 'skills', 'a')).version).toBe('2.0.0')
   })
 })

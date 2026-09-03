@@ -26,17 +26,22 @@ export function makeProject(tree: Tree = {}): string {
   return fs.realpathSync(root)
 }
 
-export function pkgJson(name: string, version = '1.0.0', keywords: string[] = ['use-npm-skills']): string {
-  return JSON.stringify({ name, version, keywords }, null, 2)
+export function pkgJson(name: string, version = '1.0.0'): string {
+  return JSON.stringify({ name, version }, null, 2)
 }
 
 export function skillMd(name: string, body = ''): string {
   return `---\nname: ${name}\ndescription: A test skill.\n---\n\n# ${name}\n${body}`
 }
 
-/** node_modules subtree for a skill package (its skill/ directory holds a SKILL.md plus `files`). */
+/** The subtree of one skill directory: a SKILL.md named `skillName` plus `files`. */
+export function skillDir(skillName: string, files: Tree = {}): Tree {
+  return { 'SKILL.md': skillMd(skillName), ...files }
+}
+
+/** node_modules subtree for a skill package shipping one skill, in skills/<skillName>/ (a SKILL.md plus `files`). */
 export function skillPkg(name: string, skillName: string, version = '1.0.0', files: Tree = {}): Tree {
-  return { 'package.json': pkgJson(name, version), skill: { 'SKILL.md': skillMd(skillName), ...files } }
+  return { 'package.json': pkgJson(name, version), skills: { [skillName]: skillDir(skillName, files) } }
 }
 
 export async function run(root: string, options: Partial<SyncOptions> = {}) {
