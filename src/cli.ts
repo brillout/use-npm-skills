@@ -9,19 +9,20 @@ const HELP = `Usage: npx use-npm-skills [options]
        use-npm-skills install-package     (from a skill package's postinstall script)
        use-npm-skills uninstall-package   (from a skill package's uninstall script)
 
-Materializes the skills of all installed skill packages (npm packages that
-ship skills in a skills/ directory, one subdirectory per skill, in any
+Installs the skills of all installed skill packages (npm packages that ship
+skills in a skills/ directory, one subdirectory per skill, in any
 node_modules/ of the repo) into the skills directories at your repo's root
-(e.g. .agents/skills/, .claude/skills/), and prunes the skills of packages
-that were removed.
+(e.g. .agents/skills/, .claude/skills/) — each skill as a symlink to its
+directory inside the package — and removes the skills of packages that were
+uninstalled.
 
-Run it after adding, updating, or removing skill packages — it installs no
-lifecycle hooks of its own. A skill package may run the two commands above
-from its own lifecycle scripts: install-package installs that package's
-skills (nothing else) and reports skills of other packages that a run of
-use-npm-skills would change — failing only when the CI environment variable
-is set, so it never interrupts a local install; uninstall-package removes
-that package's skills.
+Run it after adding or removing skill packages — it installs no lifecycle
+hooks of its own. Updating a package needs no run: the symlink follows.
+A skill package may run the two commands above from its own lifecycle
+scripts: install-package installs that package's skills (nothing else) and
+reports skills of other packages that a run of use-npm-skills would change —
+failing only when the CI environment variable is set, so it never interrupts
+a local install; uninstall-package removes that package's skills.
 
 Options:
   --force       Overwrite locally-modified skills (asks per skill on a TTY)
