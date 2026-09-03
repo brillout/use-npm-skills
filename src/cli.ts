@@ -8,9 +8,9 @@ const HELP = `Usage: npx use-npm-skills [options]
 
 Materializes the skills of all installed skill packages (npm packages that
 ship skills in a skills/ directory, one subdirectory per skill, in any
-node_modules/ of the repo) into the skills directories at your Git repo's
-root (e.g. .agents/skills/, .claude/skills/), and prunes the skills of
-packages that were removed.
+node_modules/ of the repo) into the skills directories at your repo's root
+(e.g. .agents/skills/, .claude/skills/), and prunes the skills of packages
+that were removed.
 
 Run it after adding, updating, or removing skill packages — it installs no
 lifecycle hooks by design.

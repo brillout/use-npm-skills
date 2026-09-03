@@ -64,7 +64,7 @@ After you remove (or `exclude`) the package, the edited skill stays in your repo
 - **Your repo already has skills dirs?** They're detected and used — `skills/` at the root, or any `*/skills/` one level down that contains at least one skill: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, and whatever the next agent brings.
 - **No skills dir yet?** `.agents/skills/` is created. If your agent only reads its own dir (say, `.claude/skills/`), list both in the [configuration](#configuration).
 - **Several skills dirs?** Each skill is written once and mirrored into the others with relative symlinks (plain copies on Windows machines without [Git symlink support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201)). If your repo already mirrors skills differently — one dir symlinked to another, or duplicated copies — your existing layout is followed.
-- **Monorepo, or a JavaScript project nested in a subdirectory?** Skills are installed at the Git repository root — where your agents look for them — whatever directory your lockfile and `node_modules/` live in. Every `node_modules/` in the repo is crawled, so a skill package that only a workspace package or a nested project depends on is found too.
+- **Monorepo, or a JavaScript project nested in a subdirectory?** Skills are installed at the Git repository root — where your agents look for them — whatever directory your lockfile and `node_modules/` live in (outside a Git repo: next to the nearest lockfile, or else in the current directory). Every `node_modules/` in the repo is crawled, so a skill package that only a workspace package or a nested project depends on is found too.
 
 ### Configuration
 

@@ -15,7 +15,7 @@ Sync runs as a pipeline; each step is one file:
 
 [1] sync: the tool's one and only action — materialize the skills of all installed skill packages into the project's skills directories and prune the skills of packages that were removed.
 
-[2] project root: the directory where skills are installed — the Git repository root, i.e. the nearest ancestor of the working directory containing a `.git` entry.
+[2] project root: the directory where skills are installed — the Git repository root (the nearest ancestor of the working directory containing a `.git` entry); outside a Git repository, the nearest ancestor containing a package-manager lockfile, or failing that the working directory itself.
 
 [3] skill package: an installed npm package shipping one or more skills, each as a `skills/<name>/` directory — the `skills/` directory is the only marker.
 

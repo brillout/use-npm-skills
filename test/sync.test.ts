@@ -1,6 +1,5 @@
 import fs from 'node:fs'
 import { describe, expect, test } from 'vitest'
-import { UsageError } from '../src/types.js'
 import {
   exists,
   isLink,
@@ -18,10 +17,25 @@ import {
 } from './helpers.js'
 
 describe('root resolution', () => {
-  test('errors outside a Git repository', async () => {
-    const root = makeProject()
+  test("outside a Git repository, the nearest lockfile's directory is the root", async () => {
+    const root = makeProject({
+      'pnpm-lock.yaml': '',
+      node_modules: { p: skillPkg('p', 's') },
+      packages: { app: { 'package.json': '{}' } },
+    })
     fs.rmSync(j(root, '.git'), { recursive: true })
-    await expect(run(root)).rejects.toThrow(UsageError)
+    const { result } = await run(j(root, 'packages', 'app'))
+    expect(result.root).toBe(root)
+    expect(exists(j(root, '.agents', 'skills', 's', 'SKILL.md'))).toBe(true)
+  })
+
+  test('outside a Git repository and without a lockfile, the working directory is the root', async () => {
+    const root = makeProject({ sub: { node_modules: { p: skillPkg('p', 's') } } })
+    fs.rmSync(j(root, '.git'), { recursive: true })
+    const { result } = await run(j(root, 'sub'))
+    expect(result.root).toBe(j(root, 'sub'))
+    expect(exists(j(root, 'sub', '.agents', 'skills', 's', 'SKILL.md'))).toBe(true)
+    expect(exists(j(root, '.agents'))).toBe(false)
   })
 
   test('errors without node_modules', async () => {

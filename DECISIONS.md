@@ -7,10 +7,11 @@ Resolve project root → enumerate installed skill packages → determine target
 → analyze existing structure → materialize each skill → prune orphaned skills.
 
 ### Resolve project root
-- Root = the Git repo root (nearest `.git` — dir or file — walking up from cwd; none ⇒
-  usage error): agents read their skills dirs at the repo root, and a JS workspace can
-  live in a subdirectory ([skills-npm#38](https://github.com/antfu/skills-npm/issues/38)).
-  Skills dirs, config, and the package crawl all hang off it; the lockfile plays no role.
+- Root = the Git repo root (nearest `.git` — dir or file — walking up from cwd): agents
+  read their skills dirs at the repo root, and a JS workspace can live in a subdirectory
+  ([skills-npm#38](https://github.com/antfu/skills-npm/issues/38)). Not in a Git repo ⇒
+  the nearest lockfile's dir; none either ⇒ cwd. Skills dirs, config, and the package
+  crawl all hang off it.
 
 ### Enumerate installed skill packages
 - A skill package = a top-level `node_modules` package with a `skills/` directory holding
