@@ -8,7 +8,7 @@ import { UsageError, type PackageSkill } from './types.js'
 /**
  * A skill package = a top-level node_modules package with a `skills/`
  * directory holding at least one subdirectory — the directory is the only
- * marker (antfu/skills-npm's rule: `node_modules/*/skills/*/SKILL.md`), so a
+ * marker (antfu/skills-npm's rule: node_modules/<pkg>/skills/<name>/SKILL.md), so a
  * package built for skills-npm works as-is. Root-level scan only —
  * sufficient on pnpm's strict layout because skill packages are direct deps.
  * Each subdirectory of `skills/` is one skill; the result is sorted by
