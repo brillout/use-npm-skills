@@ -1,5 +1,6 @@
-Non-obvious decisions only, grouped by business-logic flow. Anything not listed is left
-to the implementer's judgment. Flag conflicts instead of silently deviating.
+Non-obvious decisions only, grouped by business-logic flow, anything not listed is left
+to the implementer's judgment, flag conflicts instead of silently deviating, keep
+outdated decisions (no history).
 
 ## Flow: sync (`npx use-npm-skills`, the default action)
 Resolve project root → enumerate installed skill packages → determine target skills dirs
@@ -11,17 +12,8 @@ Resolve project root → enumerate installed skill packages → determine target
 
 ### Enumerate installed skill packages
 - A skill package = a top-level `node_modules` package with a `skills/` directory holding
-  ≥1 subdirectory — the **only** marker, and exactly antfu/skills-npm's rule
-  (`node_modules/*/skills/*/SKILL.md`), so a package built for either tool works with
-  both without its author opting in. The former `"use-npm-skills"` keyword marker was
-  dropped for that reason (it doubled as a free directory of published skills via npmjs
-  keyword search, but hid every skills-npm package from this tool). A root `SKILL.md`,
-  a `skill/` dir, or a files-only `skills/` ⇒ not a skill package, nothing reported. An
-  unusable subdirectory (invalid name, no `SKILL.md`, frontmatter `name` ≠ dir name) ⇒
-  skip that skill + warn, the package's other skills still sync; a dependency whose
-  `skills/` has nothing to do with agent skills is silenced via `exclude`. Root-level
-  scan only (sufficient on pnpm's strict layout because skill packages are direct
-  deps); no lockfile parsing. Yarn PnP: detect `.pnp.cjs`, print "unsupported", exit 0.
+  ≥1 subdirectory — the **only** marker.
+- Yarn PnP: detect `.pnp.cjs`, print "unsupported", exit 0.
 
 ### Determine target skills dirs
 - Targets = `<root>/skills/` and `<root>/<dir>/skills/` (one level deep, dot-dirs
@@ -49,30 +41,14 @@ Resolve project root → enumerate installed skill packages → determine target
 ### Materialize each skill
 - The skill npm package ships its skills in a `skills/` directory, one subdirectory
   per skill (`skills/<name>/`; materialization takes the subdirectory's full contents)
-  — the **only** supported layout, and the layout
-  [antfu/skills-npm](https://github.com/antfu/skills-npm) established, so one package
-  serves both tools. One package = **any number** of skills; the primary motivation is
-  non-skill packages (e.g. a JS library) publishing the skills for using them alongside
-  their code, so skill and code are always the same version. Dropped layouts: a
-  root-`SKILL.md` (not future-proof: a directory works both for today's copy
-  materialization out of `node_modules/` and for a potential future mode that symlinks
-  each skill entry straight to the package — a lone `SKILL.md` in a package root full
-  of unrelated files could never be the target of such a symlink) and the single-skill
-  `skill/` directory (two layouts for one thing; zero external users, so no
-  compatibility shim).
+  — the **only** supported layout. One package = **any number** of skills;
 - Materialized entries are real files meant to be **committed** (nothing is gitignored)
   — requirement: repos must be skill-aware at rest, i.e. an agent reading a fresh clone
   sees every skill before anything is installed. This is why gitignored materialization
   and links into `node_modules` were rejected.
 - **Symlinks only ever between skills dirs — never into `node_modules`** ⇒ every skill
   has real files and `source.json` always exists.
-- Materialized dir name = the skill's directory name under `skills/`, which its
-  frontmatter `name` must equal (the agentskills.io spec requires dir == name;
-  skills-npm keys on the dir name too). Mismatch ⇒ skip + warn rather than materialize
-  a spec-violating skill.
-- Skill-name collision between two installed packages: first alphabetically by package
-  name wins; later ones skipped + warned. (Within one package, names are directory
-  names, hence unique.)
+- Materialized dir name = the skill's directory name under `skills/`
 - Ownership: an entry is tool-owned iff it carries `source.json` (directly, or resolved
   through its symlink). Everything else is user-authored and always wins: skip + warn.
 - `source.json` = `{ "package", "version", "hash" }`. Hash covers
@@ -108,4 +84,3 @@ Resolve project root → enumerate installed skill packages → determine target
   nothing for supply-chain scanners to flag.
 - Config `.use-npm-skills.json` (project root): `skillsDirs` (overrides list of
   `skills/` dir discovery), `exclude` (skip installed skill packages by name).
-- Out of scope (decided, not forgotten): Yarn PnP · nested skills dirs.
