@@ -1,4 +1,5 @@
 export { sync, type SyncOptions } from './sync.js'
+export { installPackage, uninstallPackage, type HookOptions, type HookResult } from './hooks.js'
 export { Logger } from './logger.js'
 export {
   CONFIG_FILE,

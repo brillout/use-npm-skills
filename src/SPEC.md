@@ -9,7 +9,7 @@ Sync runs as a pipeline; each step is one file:
 5. Materialize [5] each skill — `materialize.SPEC.md`
 6. Prune orphaned skills — `prune.SPEC.md`
 
-`sync.SPEC.md` describes the orchestration of these steps; `cli.SPEC.md` the command-line interface on top. Supporting files: `config.SPEC.md` (the `.use-npm-skills.json` config file), `hash.SPEC.md` (skill content identity), `gitSymlinks.SPEC.md` (Windows: is Git symlink support available?), `index.SPEC.md` (library entry point), `types.SPEC.md` (shared vocabulary), `logger.SPEC.md` and `fsUtils.SPEC.md` (infrastructure).
+`sync.SPEC.md` describes the orchestration of these steps; `cli.SPEC.md` the command-line interface on top; `hooks.SPEC.md` the two commands a skill package's own lifecycle scripts run to install or remove that one package's skills. Supporting files: `config.SPEC.md` (the `.use-npm-skills.json` config file), `hash.SPEC.md` (skill content identity), `gitSymlinks.SPEC.md` (Windows: is Git symlink support available?), `index.SPEC.md` (library entry point), `types.SPEC.md` (shared vocabulary), `logger.SPEC.md` and `fsUtils.SPEC.md` (infrastructure).
 
 ## Glossary
 
@@ -26,6 +26,7 @@ Sync runs as a pipeline; each step is one file:
 ## Business logic — TL;DR
 
 - **The sync pipeline** - one deterministic pass: resolve root, enumerate, target, analyze, materialize, prune.
+- **Package hooks** - `install-package` and `uninstall-package` run the same pipeline for a single package, from that package's own lifecycle scripts (`hooks.SPEC.md`).
 - **Reported outcome per skill** - every skill ends the run with exactly one recorded outcome, and the exit code reflects whether local modifications blocked the sync.
 
 ## Business logic

@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
 import type { Interface } from 'node:readline/promises'
+import { installPackage, uninstallPackage } from './hooks.js'
 import { UsageError } from './types.js'
 import { sync } from './sync.js'
 
 const HELP = `Usage: npx use-npm-skills [options]
+       use-npm-skills install-package     (from a skill package's postinstall script)
+       use-npm-skills uninstall-package   (from a skill package's uninstall script)
 
 Materializes the skills of all installed skill packages (npm packages that
 ship skills in a skills/ directory, one subdirectory per skill, in any
@@ -13,7 +16,12 @@ node_modules/ of the repo) into the skills directories at your repo's root
 that were removed.
 
 Run it after adding, updating, or removing skill packages — it installs no
-lifecycle hooks by design.
+lifecycle hooks of its own. A skill package may run the two commands above
+from its own lifecycle scripts: install-package installs that package's
+skills (nothing else) and reports skills of other packages that a run of
+use-npm-skills would change — failing only when the CI environment variable
+is set, so it never interrupts a local install; uninstall-package removes
+that package's skills.
 
 Options:
   --force       Overwrite locally-modified skills (asks per skill on a TTY)
@@ -25,8 +33,11 @@ Config (.use-npm-skills.json at the project root):
 
 Docs: https://github.com/brillout/use-npm-skills`
 
+const COMMANDS = ['sync', 'install-package', 'uninstall-package']
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2)
+  const command = args[0] && !args[0].startsWith('-') ? args.shift()! : 'sync'
   let force = false
   for (const arg of args) {
     if (arg === '--force' || arg === '-f') {
@@ -44,10 +55,23 @@ async function main(): Promise<void> {
       return
     }
   }
+  if (!COMMANDS.includes(command) || (force && command !== 'sync')) {
+    console.error(`Error: unknown command \`${command}${force ? ' --force' : ''}\`\n\n${HELP}`)
+    process.exitCode = 1
+    return
+  }
 
   const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY)
   let rl: Interface | undefined
   try {
+    if (command === 'install-package') {
+      process.exitCode = (await installPackage()).exitCode
+      return
+    }
+    if (command === 'uninstall-package') {
+      process.exitCode = uninstallPackage().exitCode
+      return
+    }
     const result = await sync({
       force,
       onTamperedList(tampered) {

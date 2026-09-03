@@ -1,4 +1,4 @@
-Message reporting infrastructure, no business logic: collects every info and warning message of a run (so the sync result can return them to library users, and tests can assert on them) and prints them as they happen — warnings prefixed with `Warning:` — unless quiet mode is on (used by tests).
+Message reporting infrastructure, no business logic: collects every info, warning, and error message of a run (so results can return them to library users, and tests can assert on them) and prints them as they happen — warnings prefixed with `Warning:`, errors with `Error:` — unless quiet mode is on (used by tests).
 
 ## Before modifying/creating SPEC.md files
 

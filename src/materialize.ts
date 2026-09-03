@@ -76,6 +76,40 @@ export function stillProvided(active: PackageSkill[], pkgName: string, skillName
   return active.some((skill) => skill.package === pkgName && skill.name === skillName)
 }
 
+export type SyncStatus = 'in sync' | 'missing' | 'outdated' | 'modified locally'
+
+/**
+ * How a skill's materialization compares to what a full sync would leave.
+ * User-authored content in its way counts as in sync: a sync leaves that
+ * alone too (and creates no mirrors when it blocks the primary dir).
+ */
+export function syncStatus(skill: PackageSkill, desiredHash: string, analysis: Analysis): SyncStatus {
+  const realDests = analysis.style === 'copy' ? analysis.physicalDirs : [analysis.primaryDir]
+  const linkDests = analysis.style === 'copy' ? [] : analysis.physicalDirs.filter((d) => d !== analysis.primaryDir)
+  for (const dir of realDests) {
+    const state = classifyEntry(path.join(dir, skill.name))
+    if (state.type === 'missing' || state.type === 'dangling-link') return 'missing'
+    if (state.type === 'tool-link') return 'outdated'
+    if (state.type === 'owned-dir') {
+      if (!state.pristine) return 'modified locally'
+      const current =
+        state.meta.package === skill.package && state.meta.version === skill.version && state.meta.hash === desiredHash
+      if (!current) return 'outdated'
+    } else if (analysis.style === 'symlink') {
+      return 'in sync' // user-authored content blocks the primary dir
+    }
+  }
+  const primaryEntry = path.join(analysis.primaryDir, skill.name)
+  for (const dir of linkDests) {
+    const linkPath = path.join(dir, skill.name)
+    const state = classifyEntry(linkPath)
+    if (state.type === 'missing' || state.type === 'dangling-link') return 'missing'
+    if (state.type === 'owned-dir') return 'outdated'
+    if (state.type === 'tool-link' && realpathSafe(linkPath) !== realpathSafe(primaryEntry)) return 'outdated'
+  }
+  return 'in sync'
+}
+
 export function writeSkill(entryPath: string, files: Map<string, Buffer>, meta: SourceMeta): void {
   fs.mkdirSync(entryPath, { recursive: true })
   writeFileMap(entryPath, files)
@@ -113,11 +147,14 @@ export function listTampered(active: PackageSkill[], analysis: Analysis): { skil
 
 export interface MaterializeContext {
   root: string
+  /** Every installed skill — collisions and ownership are decided over all of them. */
   active: PackageSkill[]
   analysis: Analysis
   force: boolean
   confirmOverwrite: (skillName: string, pkgName: string) => Promise<boolean> | boolean
   log: Logger
+  /** Write only this package's skills (install-package); the others' are left untouched. */
+  only?: string
 }
 
 export async function materializeAll(ctx: MaterializeContext): Promise<{ actions: Action[]; tampered: boolean }> {
@@ -128,17 +165,21 @@ export async function materializeAll(ctx: MaterializeContext): Promise<{ actions
   const rel = (p: string) => relDisplay(root, p)
 
   for (const skill of active) {
+    const mine = !ctx.only || skill.package === ctx.only
     // Skill-name collision between two installed packages: first alphabetically wins.
     const claimedBy = claimed.get(skill.name)
     if (claimedBy) {
-      log.warn(
-        `skill name \`${skill.name}\` is provided by both \`${claimedBy}\` and \`${skill.package}\` — ` +
-          `keeping \`${claimedBy}\`, skipping \`${skill.package}\``,
-      )
-      actions.push({ kind: 'skipped-collision', skill: skill.name, package: skill.package })
+      if (mine) {
+        log.warn(
+          `skill name \`${skill.name}\` is provided by both \`${claimedBy}\` and \`${skill.package}\` — ` +
+            `keeping \`${claimedBy}\`, skipping \`${skill.package}\``,
+        )
+        actions.push({ kind: 'skipped-collision', skill: skill.name, package: skill.package })
+      }
       continue
     }
     claimed.set(skill.name, skill.package)
+    if (!mine) continue
 
     let files: Map<string, Buffer>
     try {

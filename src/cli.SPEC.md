@@ -2,7 +2,7 @@ The `npx use-npm-skills` command: parses the command line, runs sync (see `sync.
 
 ## Business logic — TL;DR
 
-- **Command-line surface** - no arguments runs sync; `--force`, `--help`, `--version`; anything else is an error.
+- **Command-line surface** - no arguments runs sync; `install-package` and `uninstall-package` are the package-hook commands; `--force`, `--help`, `--version`; anything else is an error.
 - **Interactive `--force` confirmation** - in a terminal, each locally modified skill is confirmed before being overwritten; outside a terminal, all are overwritten.
 - **Friendly errors** - usage errors are printed as one-line messages with exit code 1; unexpected errors keep their stack trace.
 
@@ -16,7 +16,7 @@ The developer runs `npx use-npm-skills` after adding, updating, or removing skil
 
 #### Business logic
 
-Running the command with no arguments performs sync. `--force` (or `-f`) additionally overwrites locally modified skills. `--help` (or `-h`) prints usage, the config file format, and a link to the documentation; `--version` (or `-v`) prints the tool's version; both exit without syncing. Any other argument prints an error plus the usage text and exits with code 1. The exit code of a sync run is the sync result's exit code: 0 on success, non-zero when locally modified skills were found and left untouched.
+Running the command with no arguments performs sync. `--force` (or `-f`) additionally overwrites locally modified skills. The commands `install-package` and `uninstall-package` (see `hooks.SPEC.md`) run the package hooks; they take no options, so `--force` with them is an error. `--help` (or `-h`) prints usage — the commands included — the config file format, and a link to the documentation; `--version` (or `-v`) prints the tool's version; both exit without doing anything else. Any other argument or command prints an error plus the usage text and exits with code 1. The exit code of a sync run is the sync result's exit code: 0 on success, non-zero when locally modified skills were found and left untouched; the exit code of a hook command is the hook's: `install-package` exits with code 1 only when it found a bad state and the `CI` environment variable is set.
 
 ### Interactive `--force` confirmation
 

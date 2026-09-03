@@ -7,10 +7,11 @@ The repository has two top-level subsystems:
 
 ## User stories
 
-- **Skill author** — I publish and maintain a skill as a normal npm package: semver releases and deprecations come from npm itself.
+- **Skill author** — I publish and maintain a skill as a normal npm package: semver releases and deprecations come from npm itself. Optionally, my package installs its skills by itself through its own lifecycle scripts.
 - **Library author** — I ship the skills for using my library inside the library's own npm package, so they are versioned and updated together with the code they describe.
 - **Developer** — I get skills like any dependency: install the package, run `npx use-npm-skills`, and the skill shows up where my AI agents look for skills. Upgrading is `npm update` plus a re-run; the package manager's lockfile pins exactly which skill content my whole team has.
 - **Developer** — if I hand-edit an installed skill, the tool never silently overwrites or deletes my changes.
+- **Developer** — if I forgot to run the tool after changing skill packages, the next install of a package with lifecycle scripts tells me, and CI fails.
 - **AI agent** — reading a fresh clone of the repository, I see every skill without anyone running an install step first.
 
 ## Problems
@@ -28,7 +29,7 @@ The repository has two top-level subsystems:
 ## Business logic — TL;DR
 
 - **Skills as npm dependencies** - a skill package [1] is a normal npm package recognized by its `skills/` directory; it delivers one skill or several.
-- **Explicit sync, no hooks** - the user runs `npx use-npm-skills` after changing skill packages; the tool installs no package-manager lifecycle hooks.
+- **Explicit sync, optional package hooks** - the user runs `npx use-npm-skills` after changing skill packages; the tool installs no lifecycle hooks of its own, but a skill package may run `install-package` / `uninstall-package` from its own lifecycle scripts, acting on that package alone.
 - **Committed materialization** - materialized [2] skills are real, committed files, so a fresh clone is skill-aware before anything is installed.
 - **User content is inviolable** - hand-written skills and local edits to materialized skills always win over the tool.
 
@@ -48,19 +49,19 @@ A skill package [1] is any installed npm dependency — of the repository root o
 
 Reusing npm instead of a bespoke registry means authors and users keep the tooling and guarantees they already have. Making the `skills/` directory the only marker — the rule [antfu/skills-npm](https://github.com/antfu/skills-npm) established — means a package written for either tool works with both, without its author opting in. Allowing several skills per package lets a library ship the skills for using it inside the library itself, so a skill and the code it describes are always the same version.
 
-### Explicit sync, no hooks
+### Explicit sync, optional package hooks
 
 #### User story
 
-Developer (see `## User stories`).
+Skill author, Developer (see `## User stories`).
 
 #### Business logic
 
-The tool does nothing automatically: the user runs `npx use-npm-skills` after adding, updating, or removing skill packages. The tool ships zero lifecycle scripts and never installs hooks.
+The tool itself does nothing automatically: it ships zero lifecycle scripts and never installs hooks; the user runs `npx use-npm-skills` after adding, updating, or removing skill packages. A skill package may declare `postinstall` and `uninstall` scripts running `use-npm-skills install-package` and `use-npm-skills uninstall-package` (see `src/hooks.SPEC.md`), which install or remove that one package's skills as part of the package manager's install — and report, without fixing them, other packages' skills that are out of sync.
 
 #### Rationale
 
-Package-manager lifecycle events are structurally unreliable: dependency postinstall scripts are blocked by default on pnpm and Bun and don't re-run on skill updates on npm; no package manager fires anything on uninstall; targeted `npm update <pkg>` / `npm install <pkg>` fire no root hooks either. Half-working automation is worse than none. Being script-free is also a trust feature: no build-approval prompts, nothing for supply-chain scanners to flag.
+Package-manager lifecycle events are structurally unreliable: dependency postinstall scripts are blocked by default on pnpm and Bun and don't re-run on skill updates on npm; few package managers fire anything on uninstall; targeted `npm update <pkg>` / `npm install <pkg>` fire no root hooks either. Half-working automation is worse than none, so the explicit command stays the one that brings everything in sync; a package's own hooks are opt-in, act on that package alone, and are a convenience layered on top. The tool being script-free is also a trust feature: no build-approval prompts, nothing for supply-chain scanners to flag.
 
 ### Committed materialization
 

@@ -4,7 +4,7 @@ import { loadConfig } from './config.js'
 import { enumerateSkills } from './enumerate.js'
 import { isFile, relDisplay } from './fsUtils.js'
 import { Logger } from './logger.js'
-import { listTampered, materializeAll } from './materialize.js'
+import { listTampered, materializeAll, stillProvided } from './materialize.js'
 import { pruneOrphans } from './prune.js'
 import { resolveProjectRoot } from './resolveRoot.js'
 import { discoverTargetDirs } from './targets.js'
@@ -67,7 +67,9 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
     log,
   })
   actions.push(...materialized.actions)
-  actions.push(...pruneOrphans(root, analysis.physicalDirs, active, log))
+  actions.push(
+    ...pruneOrphans(root, analysis.physicalDirs, (meta, name) => !stillProvided(active, meta.package, name), log),
+  )
 
   if (all.length === 0) {
     log.info(
