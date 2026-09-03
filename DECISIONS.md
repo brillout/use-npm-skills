@@ -86,6 +86,11 @@ Resolve project root → enumerate installed skill packages → determine target
 ## Flow: package hooks (`install-package` / `uninstall-package`, run by a skill package's own `postinstall` / `uninstall` scripts)
 - Optional for skill packages (without them: tell users to run `npx use-npm-skills`); the tool
   itself still ships zero lifecycle scripts.
+- Skill packages declare `use-npm-skills` as a **peer** dependency, not a dependency: the
+  project's own copy (the recommended devDependency) runs the hooks when present, otherwise
+  npm/pnpm/Bun install the missing peer (measured; Yarn doesn't ⇒ a Yarn project needs the
+  devDependency). One tool version per project, chosen by the user — a dependency would nest a
+  copy per skill package, each of its own version, all writing the same dirs.
 - Package = the script's cwd (`package.json` name); project = the dir above the outermost
   `node_modules/` (pnpm runs scripts in `node_modules/.pnpm/…`), then the normal root resolution.
   Its skills = what the crawl finds for it from the root, not cwd's `skills/`: PMs link every

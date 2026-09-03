@@ -154,7 +154,7 @@ Optionally, let your package install its skills by itself:
 ```json
 {
   "name": "skill-awesome-memory",
-  "dependencies": { "use-npm-skills": "^0.1.0" },
+  "peerDependencies": { "use-npm-skills": "*" },
   "scripts": {
     "postinstall": "use-npm-skills install-package",
     "uninstall": "use-npm-skills uninstall-package"
@@ -162,9 +162,11 @@ Optionally, let your package install its skills by itself:
 }
 ```
 
+Declare `use-npm-skills` as a peer dependency, not a dependency: npm, pnpm, and Bun install a missing peer dependency by themselves, and when the project already has `use-npm-skills` (the dev dependency the install instructions recommend), that copy runs your hook. The project, not your package, decides which version of the tool writes its skills directories — and there is exactly one.
+
 `install-package` installs your package's skills — and nothing else — when your package is installed. It also checks the other installed skill packages and prints an error for every skill a run of `npx use-npm-skills` would change (missing, outdated, left over, edited), so a stale skills directory is caught at the next install. It never fails a local install (a failing `postinstall` would abort the whole install), but it does fail when the `CI` environment variable is set, so CI goes red. `uninstall-package` removes your package's skills — where the package manager runs uninstall scripts (npm 7+ and pnpm don't; the next `npx use-npm-skills` cleans up).
 
-Three caveats: pnpm and Bun don't run dependencies' scripts until the user approves them; most package managers only show a dependency's script output when the script fails (npm needs `--foreground-scripts`), so locally the report is easy to miss and CI is where it reliably bites; and without the hooks your users simply run `npx use-npm-skills` after installing — say so in your README.
+Caveats: pnpm and Bun don't run dependencies' scripts until the user approves them; Yarn doesn't install peer dependencies, so a Yarn project needs `use-npm-skills` among its own dev dependencies; most package managers only show a dependency's script output when the script fails (npm needs `--foreground-scripts`), so locally the report is easy to miss and CI is where it reliably bites; and without the hooks your users simply run `npx use-npm-skills` after installing — say so in your README.
 
 ### Try it before publishing
 
