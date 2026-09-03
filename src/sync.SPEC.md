@@ -37,7 +37,7 @@ Yarn PnP has no `node_modules/` directory to scan; supporting it is explicitly o
 
 #### User story
 
-The developer wants to keep a skill package installed (e.g. a library they use, or to keep their locally edited copy of its skill) without the tool materializing its skills.
+The developer wants to keep a skill package installed without the tool materializing its skills — a library they use, a dependency whose `skills/` directory is not meant for their agents, or to keep their locally edited copy of its skill.
 
 #### Business logic
 

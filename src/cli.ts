@@ -6,10 +6,10 @@ import { sync } from './sync.js'
 
 const HELP = `Usage: npx use-npm-skills [options]
 
-Materializes the skills of all installed skill packages (npm packages with
-"use-npm-skills" in their package.json keywords) into your project's skills
-directories (e.g. .agents/skills/, .claude/skills/), and prunes the skills of
-packages that were removed.
+Materializes the skills of all installed skill packages (npm packages that
+ship skills in a skills/ directory, one subdirectory per skill) into your
+project's skills directories (e.g. .agents/skills/, .claude/skills/), and
+prunes the skills of packages that were removed.
 
 Run it after adding, updating, or removing skill packages — it installs no
 lifecycle hooks by design.

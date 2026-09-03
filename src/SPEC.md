@@ -17,7 +17,7 @@ Sync runs as a pipeline; each step is one file:
 
 [2] project root: the directory where skills are installed — the nearest ancestor directory containing a package-manager lockfile.
 
-[3] skill package: an installed npm package marked with `"use-npm-skills"` in its `package.json` `keywords`, shipping one or more skills, each as a `skills/<name>/` directory.
+[3] skill package: an installed npm package shipping one or more skills, each as a `skills/<name>/` directory — the `skills/` directory is the only marker.
 
 [4] skills directory: a directory where AI agents look for skills (e.g. `.claude/skills/`, `.agents/skills/`); each skill in it is a subdirectory containing a `SKILL.md`.
 

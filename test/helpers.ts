@@ -26,8 +26,8 @@ export function makeProject(tree: Tree = {}): string {
   return fs.realpathSync(root)
 }
 
-export function pkgJson(name: string, version = '1.0.0', keywords: string[] = ['use-npm-skills']): string {
-  return JSON.stringify({ name, version, keywords }, null, 2)
+export function pkgJson(name: string, version = '1.0.0'): string {
+  return JSON.stringify({ name, version }, null, 2)
 }
 
 export function skillMd(name: string, body = ''): string {

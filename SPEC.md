@@ -7,7 +7,7 @@ The repository has two top-level subsystems:
 
 ## User stories
 
-- **Skill author** — I publish and maintain a skill as a normal npm package: semver releases, deprecations, and discoverability (npm keyword search) come from npm itself.
+- **Skill author** — I publish and maintain a skill as a normal npm package: semver releases and deprecations come from npm itself.
 - **Library author** — I ship the skills for using my library inside the library's own npm package, so they are versioned and updated together with the code they describe.
 - **Developer** — I get skills like any dependency: install the package, run `npx use-npm-skills`, and the skill shows up where my AI agents look for skills. Upgrading is `npm update` plus a re-run; the package manager's lockfile pins exactly which skill content my whole team has.
 - **Developer** — if I hand-edit an installed skill, the tool never silently overwrites or deletes my changes.
@@ -19,7 +19,7 @@ The repository has two top-level subsystems:
 
 ## Glossary
 
-[1] skill package: an npm package that ships one or more skills — each a `skills/<name>/` directory containing a `SKILL.md` (the agentskills.io convention) — and is marked as such by having `"use-npm-skills"` in its `package.json` `keywords` — the only marker (the keyword doubles as a free directory of all published skills via npm keyword search). A dedicated skill package ships one skill; a library can ship the skills for using it alongside its code.
+[1] skill package: an npm package that ships one or more skills, each a `skills/<name>/` directory containing a `SKILL.md` (the agentskills.io convention). The `skills/` directory is the only marker — there is no keyword or manifest field — so any package following the antfu/skills-npm convention is a skill package. A dedicated skill package ships one skill; a library can ship the skills for using it alongside its code.
 
 [2] materialize: write a skill shipped by a skill package [1] into the project's skills directories as real files meant to be committed.
 
@@ -27,7 +27,7 @@ The repository has two top-level subsystems:
 
 ## Business logic — TL;DR
 
-- **Skills as npm dependencies** - a skill package [1] is a normal npm package marked by a keyword; it delivers one skill or several.
+- **Skills as npm dependencies** - a skill package [1] is a normal npm package recognized by its `skills/` directory; it delivers one skill or several.
 - **Explicit sync, no hooks** - the user runs `npx use-npm-skills` after changing skill packages; the tool installs no package-manager lifecycle hooks.
 - **Committed materialization** - materialized [2] skills are real, committed files, so a fresh clone is skill-aware before anything is installed.
 - **User content is inviolable** - hand-written skills and local edits to materialized skills always win over the tool.
@@ -42,11 +42,11 @@ Skill author, Library author, Developer (see `## User stories`).
 
 #### Business logic
 
-A skill package [1] is any installed npm dependency whose `package.json` `keywords` contains `"use-npm-skills"`. It ships one or more skills, each in its own `skills/<name>/` directory, and everything an npm package supports — semver ranges, lockfile pinning, `npm update`, deprecation — applies to the skills unchanged.
+A skill package [1] is any installed npm dependency with a `skills/` directory holding at least one subdirectory. Each subdirectory is a skill, and everything an npm package supports — semver ranges, lockfile pinning, `npm update`, deprecation — applies to the skills unchanged.
 
 #### Rationale
 
-Reusing npm instead of a bespoke registry means authors and users keep the tooling and guarantees they already have; the keyword marker additionally makes every published skill discoverable through npm's keyword search without maintaining any index. Allowing several skills per package lets a library ship the skills for using it inside the library itself — a skill and the code it describes are then always the same version — and the `skills/` layout is the one [antfu/skills-npm](https://github.com/antfu/skills-npm) established, so one package serves both tools.
+Reusing npm instead of a bespoke registry means authors and users keep the tooling and guarantees they already have. Making the `skills/` directory the only marker — the rule [antfu/skills-npm](https://github.com/antfu/skills-npm) established — means a package written for either tool works with both, without its author opting in. Allowing several skills per package lets a library ship the skills for using it inside the library itself, so a skill and the code it describes are always the same version.
 
 ### Explicit sync, no hooks
 

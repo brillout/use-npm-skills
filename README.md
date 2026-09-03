@@ -6,7 +6,7 @@ Contents: [Using skills](#using-skills) · [Publishing skills](#publishing-skill
 
 ## Using skills
 
-Install `use-npm-skills` and a skill package — any npm package with `use-npm-skills` in its keywords ([browse them all](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills)) — and run the tool:
+Install `use-npm-skills` and a skill package — any npm package that ships skills in a `skills/` directory, the same convention as [skills-npm](https://github.com/antfu/skills-npm) — and run the tool:
 
 ```shell
 npm install --save-dev use-npm-skills skill-awesome-memory
@@ -78,7 +78,7 @@ Optional — `.use-npm-skills.json` at the project root:
 ```
 
 - `skillsDirs`: use exactly these dirs instead of auto-detection.
-- `exclude`: ignore an installed skill package (its skills are removed — or kept as yours if you edited them).
+- `exclude`: ignore an installed skill package, e.g. a dependency whose `skills/` directory isn't meant for your agents (its skills are removed — or kept as yours if you edited them).
 
 ## Publishing skills
 
@@ -96,7 +96,6 @@ skill-awesome-memory/
 {
   "name": "skill-awesome-memory",
   "version": "1.0.0",
-  "keywords": ["use-npm-skills"],
   "files": ["skills"]
 }
 ```
@@ -110,10 +109,7 @@ description: Maintain a MEMORY.md of project learnings across sessions.
 When you learn something about this project that isn't written down anywhere, ...
 ```
 
-That's it — `npm publish`. Two things matter:
-
-- The **`use-npm-skills` keyword** is what marks your package as a skill package — and lists it in the [npm keyword search](https://www.npmjs.com/search?q=keywords%3Ause-npm-skills) where users go looking for skills.
-- The **directory name** under `skills/` is the skill's name: it becomes the skill's folder name in the user's repo, and the frontmatter `name` must match it (the [agentskills.io](https://agentskills.io/specification) rule). Lowercase letters, digits, and hyphens.
+That's it — `npm publish`. The `skills/` directory is the only marker — no keyword, no manifest field — and it's the layout [skills-npm](https://github.com/antfu/skills-npm) established, so one package serves both tools. One rule: the **directory name** under `skills/` is the skill's name — it becomes the skill's folder name in the user's repo, and the frontmatter `name` must match it (the [agentskills.io](https://agentskills.io/specification) rule). Lowercase letters, digits, and hyphens.
 
 ### Skills with more files
 
@@ -147,12 +143,9 @@ my-lib/
 ```json
 {
   "name": "my-lib",
-  "keywords": ["use-npm-skills"],
   "files": ["dist", "skills"]
 }
 ```
-
-The `skills/` layout is the one [skills-npm](https://github.com/antfu/skills-npm) established, so one package serves both tools.
 
 ### Try it before publishing
 
@@ -183,6 +176,9 @@ So `npx` runs your local copy: the tool that writes your skills is pinned by you
 
 **Why commit the skills instead of gitignoring them?**
 An agent reading a fresh clone should see every skill without anyone running an install first.
+
+**Do I need to mark my package as a skill package?**
+No — a `skills/` directory is the marker, exactly as with [skills-npm](https://github.com/antfu/skills-npm): packages built for it work with `use-npm-skills` as-is, and vice versa. If a dependency ships a `skills/` directory you don't want, list it in `exclude`.
 
 **What if two installed packages provide a skill with the same name?**
 The first package alphabetically wins; the other is skipped with a warning.

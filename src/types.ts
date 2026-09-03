@@ -1,4 +1,3 @@
-export const KEYWORD = 'use-npm-skills'
 export const CONFIG_FILE = '.use-npm-skills.json'
 export const SOURCE_JSON = 'source.json'
 export const DEFAULT_SKILLS_DIR = '.agents/skills'

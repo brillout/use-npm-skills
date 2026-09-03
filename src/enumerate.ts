@@ -3,15 +3,17 @@ import path from 'node:path'
 import { isValidSkillName, parseFrontmatterName } from './frontmatter.js'
 import { isDirectory, isFile, readdirSafe, readJsonSafe } from './fsUtils.js'
 import type { Logger } from './logger.js'
-import { KEYWORD, UsageError, type PackageSkill } from './types.js'
+import { UsageError, type PackageSkill } from './types.js'
 
 /**
- * A skill package = a top-level node_modules package with "use-npm-skills" in
- * its package.json keywords. Root-level scan only — sufficient on pnpm's
- * strict layout because skill packages are direct deps. A package ships any
- * number of skills as `skills/<name>/` (one subdirectory per skill — the
- * antfu/skills-npm layout). The result is sorted by package name, then skill
- * name, which makes every later "first one wins" rule deterministic.
+ * A skill package = a top-level node_modules package with a `skills/`
+ * directory holding at least one subdirectory — the directory is the only
+ * marker (antfu/skills-npm's rule: `node_modules/*/skills/*/SKILL.md`), so a
+ * package built for skills-npm works as-is. Root-level scan only —
+ * sufficient on pnpm's strict layout because skill packages are direct deps.
+ * Each subdirectory of `skills/` is one skill; the result is sorted by
+ * package name, then skill name, which makes every later "first one wins"
+ * rule deterministic.
  */
 export function enumerateSkills(root: string, log: Logger): PackageSkill[] {
   const nodeModules = path.join(root, 'node_modules')
@@ -37,24 +39,16 @@ export function enumerateSkills(root: string, log: Logger): PackageSkill[] {
   const skills: PackageSkill[] = []
   for (const name of packageNames) {
     const dir = path.join(nodeModules, ...name.split('/'))
-    const pkgJson = readJsonSafe(path.join(dir, 'package.json')) as Record<string, unknown> | null
-    if (!pkgJson) continue
-    const keywords = pkgJson.keywords
-    if (!Array.isArray(keywords) || !keywords.includes(KEYWORD)) continue
-    const version = typeof pkgJson.version === 'string' ? pkgJson.version : '0.0.0'
-
     // Every subdirectory of skills/ is a skill; files directly in skills/ are ignored.
     const skillsDir = path.join(dir, 'skills')
     const skillNames = readdirSafe(skillsDir)
       .filter((entry) => isDirectory(path.join(skillsDir, entry)))
       .sort()
-    if (skillNames.length === 0) {
-      log.warn(
-        `package \`${name}\` is marked with the \`${KEYWORD}\` keyword but ships no skills ` +
-          `(expected a skills/ directory with one subdirectory per skill, each containing a SKILL.md) — skipping`,
-      )
-      continue
-    }
+    if (skillNames.length === 0) continue // not a skill package
+    const pkgJson = readJsonSafe(path.join(dir, 'package.json')) as Record<string, unknown> | null
+    if (!pkgJson) continue // not an npm package
+    const version = typeof pkgJson.version === 'string' ? pkgJson.version : '0.0.0'
+
     for (const skillName of skillNames) {
       const skillDir = path.join(skillsDir, skillName)
       const problem = skillProblem(skillDir, skillName)

@@ -50,17 +50,20 @@ describe('root resolution', () => {
 })
 
 describe('enumeration', () => {
-  test('only packages with the use-npm-skills keyword count', async () => {
+  test('a skills/ directory is the only marker: keywords are irrelevant', async () => {
     const root = makeProject({
       node_modules: {
         'skill-pkg': skillPkg('skill-pkg', 'my-skill'),
-        'not-a-skill': { 'package.json': pkgJson('not-a-skill', '1.0.0', ['cli']), skills: { nope: skillDir('nope') } },
-        'no-keywords': { 'package.json': JSON.stringify({ name: 'no-keywords', version: '1.0.0' }) },
+        'keyword-only': {
+          'package.json': JSON.stringify({ name: 'keyword-only', version: '1.0.0', keywords: ['use-npm-skills'] }),
+          'SKILL.md': skillMd('keyword-only'),
+        },
+        'plain-lib': { 'package.json': pkgJson('plain-lib'), 'index.js': '' },
       },
     })
-    const { result } = await run(root)
+    const { result, log } = await run(root)
     expect(result.actions.map((a) => a.skill)).toEqual(['my-skill'])
-    expect(exists(j(root, '.agents', 'skills', 'nope'))).toBe(false)
+    expect(log.warnings).toEqual([])
   })
 
   test('scoped packages are scanned', async () => {
@@ -71,18 +74,19 @@ describe('enumeration', () => {
     expect(result.actions).toMatchObject([{ kind: 'added', skill: 'acme-skill', package: '@acme/skill-pkg' }])
   })
 
-  test('a marked package without skills/ subdirectories is skipped with a warning (root SKILL.md, skill/ do not count)', async () => {
+  test('root SKILL.md, skill/, a files-only skills/, or skills/ without a package.json make no skill package', async () => {
     const root = makeProject({
       node_modules: {
         'root-layout': { 'package.json': pkgJson('root-layout'), 'SKILL.md': skillMd('root-layout') },
         'singular-layout': { 'package.json': pkgJson('singular-layout'), skill: skillDir('singular-layout') },
-        'empty-layout': { 'package.json': pkgJson('empty-layout'), skills: { 'README.md': 'no skills here' } },
+        'files-only': { 'package.json': pkgJson('files-only'), skills: { 'README.md': 'no skills here' } },
+        'not-a-package': { skills: { stray: skillDir('stray') } },
       },
     })
     const { result, log } = await run(root)
     expect(result.exitCode).toBe(0)
     expect(result.actions).toEqual([])
-    expect(log.warnings.filter((w) => /ships no skills/.test(w))).toHaveLength(3)
+    expect(log.warnings).toEqual([])
     expect(exists(j(root, '.agents'))).toBe(false)
   })
 

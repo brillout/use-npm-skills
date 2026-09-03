@@ -1,33 +1,33 @@
-Finds the skills of the installed skill packages [1]: which of the project's installed npm packages are skill packages, and which skills — by name and location — each of them ships.
+Finds the skills of the installed skill packages [1]: which of the project's installed npm packages ship skills, and which skills — by name and location — each of them ships.
 
 ## Glossary
 
-[1] skill package: an installed npm package marked with `"use-npm-skills"` in its `package.json` `keywords`, shipping one or more skills, each as a `skills/<name>/` directory.
+[1] skill package: an installed npm package with a `skills/` directory holding at least one subdirectory; each subdirectory is a skill.
 
 ## Business logic — TL;DR
 
-- **The keyword is the only marker** - a skill package [1] is any top-level `node_modules` package with `"use-npm-skills"` in its keywords; nothing else qualifies a package.
-- **Skills live in skills/** - every subdirectory of the package's `skills/` directory is one skill; a package ships any number of them, and `skills/` is the only place the tool looks.
+- **The skills/ directory is the only marker** - any top-level `node_modules` package whose `skills/` directory has at least one subdirectory is a skill package [1]; no keyword or manifest field is involved.
+- **Every subdirectory of skills/ is a skill** - a package ships any number of skills; files directly in `skills/` are ignored, and `skills/` is the only place the tool looks.
 - **A skill is named by its directory** - the skill's name is its directory name under `skills/`, valid per the agentskills.io spec; the `SKILL.md` frontmatter `name` must match it.
-- **Broken skills are skipped, not fatal** - a marked package shipping no skills, and each unusable skill, is warned about and skipped; the run continues.
+- **Broken skills are skipped, not fatal** - each unusable skill is warned about and skipped; the run continues.
 
 ## Business logic
 
-### The keyword is the only marker
+### The skills/ directory is the only marker
 
 #### User story
 
-The skill author marks their package with one keyword and it works; developers discover all published skills by searching npm for that keyword.
+The skill author ships a `skills/` directory and it works — the same convention as antfu/skills-npm, so a package written for either tool works with both; developers add such packages like any other dependency.
 
 #### Business logic
 
-Every top-level package in the project root's `node_modules/` — scoped packages (`@scope/name`) included — whose `package.json` has `"use-npm-skills"` in its `keywords` array is a skill package [1]. There is no other marker and no lockfile parsing. Packages are processed in alphabetical order of their package name, and each package's skills in alphabetical order of their name, which makes every later "first one wins" rule deterministic. A missing `node_modules/` is a usage error telling the user to install dependencies first.
+Every top-level package in the project root's `node_modules/` — scoped packages (`@scope/name`) included — that has a readable `package.json` and a `skills/` directory containing at least one subdirectory is a skill package [1]. Nothing else marks a package: keywords and other `package.json` fields play no role, and there is no lockfile parsing. Packages are processed in alphabetical order of their package name, and each package's skills in alphabetical order of their name, which makes every later "first one wins" rule deterministic. A missing `node_modules/` is a usage error telling the user to install dependencies first.
 
 #### Rationale
 
-A top-level-only scan is sufficient even on pnpm's strict layout because skill packages are direct dependencies of the project. The keyword doubles as a free public directory of all published skills via npm keyword search.
+The layout is the marker [antfu/skills-npm](https://github.com/antfu/skills-npm) established (`node_modules/*/skills/*/SKILL.md`); requiring nothing else means every package built for skills-npm works with this tool as-is, without its author opting in. A top-level-only scan is sufficient even on pnpm's strict layout because skill packages are direct dependencies of the project. A dependency whose `skills/` directory is not meant for the user's agents is silenced with the config file's `exclude` (see `sync.SPEC.md`).
 
-### Skills live in skills/
+### Every subdirectory of skills/ is a skill
 
 #### User story
 
@@ -35,11 +35,11 @@ The skill author puts each skill the package ships — its `SKILL.md`, plus any 
 
 #### Business logic
 
-A skill package ships its skills in a `skills/` directory at the package root: every subdirectory of `skills/` is one skill, and the subdirectory's full contents are that skill. A package ships any number of skills — a dedicated skill package typically one, a library several. Files directly in `skills/` (e.g. a README) are ignored. This is the only place the tool looks — a `SKILL.md` at the package root, or a single `skill/` directory, does not count, so a package shipping only that is treated as shipping no skills (see "Broken skills are skipped, not fatal").
+Every subdirectory of the package's `skills/` directory is one skill, and the subdirectory's full contents are that skill. A package ships any number of skills — a dedicated skill package typically one, a library several. Files directly in `skills/` (e.g. a README) are ignored. `skills/` is the only place the tool looks — a `SKILL.md` at the package root, a single `skill/` directory, or a `skills/` directory holding only files does not count, so a package shipping only that is not a skill package at all, and nothing is reported about it.
 
 #### Rationale
 
-Several skills per package is what lets a library ship the skills for using it inside the library itself: a skill and the code it describes are then always the same version. The layout — `skills/` with one subdirectory per skill — is the one [antfu/skills-npm](https://github.com/antfu/skills-npm) established, so one package serves both tools. A directory per skill is also future-proof: it works for today's materialization (copying the directory's contents out of `node_modules/`) and equally for a potential future mode that symlinks each skill entry straight to the package — a directory can be the target of such a symlink, while a lone `SKILL.md` in a package root full of unrelated files cannot.
+Several skills per package is what lets a library ship the skills for using it inside the library itself: a skill and the code it describes are then always the same version. A directory per skill is also future-proof: it works for today's materialization (copying the directory's contents out of `node_modules/`) and equally for a potential future mode that symlinks each skill entry straight to the package — a directory can be the target of such a symlink, while a lone `SKILL.md` in a package root full of unrelated files cannot.
 
 ### A skill is named by its directory
 
@@ -59,11 +59,11 @@ Naming by directory is how both the agentskills.io spec and antfu/skills-npm ide
 
 #### Problem
 
-One broken skill package — or one broken skill in a package that ships several — must not prevent every other skill from syncing.
+One broken skill — in a package that ships several, or in a dependency whose `skills/` directory has nothing to do with agent skills — must not prevent every other skill from syncing.
 
 #### Business logic
 
-A package carrying the keyword but shipping no skills (no `skills/` directory, or one without subdirectories) is skipped with a warning naming the package and the expected layout. Within `skills/`, a subdirectory with an invalid name, without a `SKILL.md`, with an unreadable one, with no frontmatter `name`, or with a frontmatter `name` different from the directory name is skipped with a warning naming the package, the subdirectory, and the reason; the package's other skills, and the remaining packages, are processed normally.
+Within `skills/`, a subdirectory with an invalid name, without a `SKILL.md`, with an unreadable one, with no frontmatter `name`, or with a frontmatter `name` different from the directory name is skipped with a warning naming the package, the subdirectory, and the reason; the package's other skills, and the remaining packages, are processed normally.
 
 ## Before modifying/creating SPEC.md files
 

@@ -8,7 +8,7 @@ import { listTampered, materializeAll } from './materialize.js'
 import { pruneOrphans } from './prune.js'
 import { resolveProjectRoot } from './resolveRoot.js'
 import { discoverTargetDirs } from './targets.js'
-import { CONFIG_FILE, KEYWORD, UsageError, type Action, type SyncResult } from './types.js'
+import { CONFIG_FILE, UsageError, type Action, type SyncResult } from './types.js'
 
 export interface SyncOptions {
   cwd?: string
@@ -78,7 +78,8 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
 
   if (all.length === 0) {
     log.info(
-      `no skill packages installed — a skill package is an npm dependency with "${KEYWORD}" in its package.json keywords`,
+      'no skill packages installed — a skill package is an npm dependency with a skills/ directory ' +
+        '(one subdirectory per skill, each containing a SKILL.md)',
     )
   } else {
     const synced = actions.filter((a) => ['added', 'updated', 'up-to-date', 'forced'].includes(a.kind)).length

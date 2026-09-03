@@ -10,14 +10,18 @@ Resolve project root → enumerate installed skill packages → determine target
   "skills apply repo-wide and should therefore be installed at the monorepo root").
 
 ### Enumerate installed skill packages
-- A skill package = a top-level `node_modules` package whose `package.json` has
-  **`"use-npm-skills"` in `keywords`** — the only marker; the keyword doubles as a
-  free directory of all published skills via npmjs keyword search. A marked package
-  without `skills/*/` subdirectories ⇒ skip + warn; an unusable subdirectory (invalid
-  name, no `SKILL.md`, frontmatter `name` ≠ dir name) ⇒ skip that skill + warn, the
-  package's other skills still sync. Root-level scan only (sufficient on pnpm's strict
-  layout because skill packages are direct deps); no lockfile parsing. Yarn PnP:
-  detect `.pnp.cjs`, print "unsupported", exit 0.
+- A skill package = a top-level `node_modules` package with a `skills/` directory holding
+  ≥1 subdirectory — the **only** marker, and exactly antfu/skills-npm's rule
+  (`node_modules/*/skills/*/SKILL.md`), so a package built for either tool works with
+  both without its author opting in. The former `"use-npm-skills"` keyword marker was
+  dropped for that reason (it doubled as a free directory of published skills via npmjs
+  keyword search, but hid every skills-npm package from this tool). A root `SKILL.md`,
+  a `skill/` dir, or a files-only `skills/` ⇒ not a skill package, nothing reported. An
+  unusable subdirectory (invalid name, no `SKILL.md`, frontmatter `name` ≠ dir name) ⇒
+  skip that skill + warn, the package's other skills still sync; a dependency whose
+  `skills/` has nothing to do with agent skills is silenced via `exclude`. Root-level
+  scan only (sufficient on pnpm's strict layout because skill packages are direct
+  deps); no lockfile parsing. Yarn PnP: detect `.pnp.cjs`, print "unsupported", exit 0.
 
 ### Determine target skills dirs
 - Targets = `<root>/skills/` and `<root>/<dir>/skills/` (one level deep, dot-dirs
