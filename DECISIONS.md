@@ -43,8 +43,9 @@ Resolve project root → enumerate installed skill packages → determine target
 ### Decide the layout
 - Two modes, `"mode"` in `.use-npm-skills.json`: **`symlink`** (default) and **`copy`**.
   Copy mode and the setting are deliberately **undocumented for users** (README, `--help`)
-  for now — kept working as the escape hatch, to be documented once wanted. The SPECs
-  describe both, as they must.
+  for now: an escape hatch for projects that want the skill files inside the repo, or
+  can't use symlinks — to be documented once there is demand. The SPECs describe both,
+  as they must.
 - The mode is the setting, never inferred from the existing structure (inferring would
   freeze every project in the mode it was first synced in); a project synced in one mode
   migrates to the other on the next run (see materialize).
@@ -54,11 +55,16 @@ Resolve project root → enumerate installed skill packages → determine target
   a skill in place without a run, and the link shows where a skill comes from. Price: a
   fresh clone's links dangle until dependencies are installed — accepted, agents work in
   installed checkouts.
-- **Copy mode**: the previous behavior, unchanged. **Analysis always wins.** Precedence:
-  dir-level symlink (e.g. `.claude/skills` → `.agents/skills`: one physical dir, nothing
-  to mirror) → per-skill symlinks (follow the pattern) → duplicated skills without
-  symlinks (duplicate likewise) → mixed: majority wins; tie ⇒ default. Package links
-  cast no vote.
+- **Copy mode**: each skill is copied into the skills dirs as real files, every copy
+  carrying a `source.json` (`{ "package", "version", "hash" }`) that marks it tool-owned
+  and, via the hash, detects local edits (tamper protection, see materialize). With
+  several skills dirs, one dir — the primary — holds the real files and the others
+  mirror it: per-skill relative symlinks to the primary (the symlink style), or an
+  independent copy in every dir (the copy style). For the mirror pattern, **analysis of
+  the existing structure always wins** over the default. Precedence: dir-level symlink
+  (e.g. `.claude/skills` → `.agents/skills`: one physical dir, nothing to mirror) →
+  per-skill symlinks (follow the pattern) → duplicated skills without symlinks (duplicate
+  likewise) → mixed: majority wins; tie ⇒ default. Package links cast no vote.
 - Copy mode default pattern: real files in `.agents/skills/` (if it's not a target: first
   target alphabetically), per-skill **relative** symlinks in the other dirs.
 - Windows: symlinks where [Git symlink support is

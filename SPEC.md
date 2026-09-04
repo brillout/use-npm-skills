@@ -75,7 +75,7 @@ By default (symlink mode), a skill is materialized [2] as a relative symlink fro
 
 #### Rationale
 
-The repository holds no copy of skill content, so nothing can drift from the installed package, updating a package updates its skills, and each link shows where a skill comes from. The price — a fresh clone's links dangle until dependencies are installed — is accepted: installing dependencies is the step every clone takes before an agent works in it. Copy mode is kept for environments without symlinks and for projects that want the skill files in the repository.
+The repository holds no copy of skill content, so nothing can drift from the installed package, updating a package updates its skills, and each link shows where a skill comes from. The price — a fresh clone's links dangle until dependencies are installed — is accepted: installing dependencies is the step every clone takes before an agent works in it. Copy mode exists for environments without symlinks and for projects that want the skill files inside the repository.
 
 ### User content is inviolable
 
