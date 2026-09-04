@@ -2,7 +2,7 @@ The two commands a skill package's own lifecycle scripts run, so that installing
 
 ## Glossary
 
-[1] out of sync: a skill's materialization differs from what a run of `npx use-npm-skills` (`sync.SPEC.md`) would leave — the skill is missing, outdated (another package, version, or content is materialized in its place), left over from a package that no longer provides it, or modified locally.
+[1] out of sync: a skill's materialization differs from what a run of `npx use-npm-skills` (`sync.SPEC.md`) would leave — the skill is missing, outdated (its entry points elsewhere, or in copy mode holds another package, version, or content), left over from a package that no longer provides it, or (copy mode) modified locally.
 
 ## Business logic — TL;DR
 
@@ -63,7 +63,7 @@ Developer: `npm uninstall skill-awesome-memory` removes the skill from my reposi
 
 #### Business logic
 
-`uninstall-package` removes its package's materialized skills as a full sync's pruning would (`prune.SPEC.md`): pristine ones are deleted together with their mirror symlinks, locally modified ones are adopted as user-authored skills. Nothing else is touched.
+`uninstall-package` removes its package's materialized skills as a full sync's pruning would (`prune.SPEC.md`): links and pristine copies are deleted (a copy together with its mirror symlinks), locally modified copies are adopted as user-authored skills. Nothing else is touched.
 
 #### Rationale
 

@@ -1,30 +1,52 @@
 import path from 'node:path'
 import { isFile, lstatType, readdirSafe, realpathSafe, relDisplay } from './fsUtils.js'
 import { detectGitSymlinkSupport } from './gitSymlinks.js'
-import { DEFAULT_SKILLS_DIR, type Analysis, type MirrorStyle } from './types.js'
+import type { Logger } from './logger.js'
+import { DEFAULT_MODE, DEFAULT_SKILLS_DIR, type Analysis, type Config, type MirrorStyle } from './types.js'
 
-interface SkillInstance {
-  kind: 'real' | 'link'
-  /** For links: the physical target dir the link points into (if any). */
-  linkPrimary?: string
+export interface AnalyzeOptions {
+  root: string
+  targetDirs: string[]
+  config: Config
+  platform: NodeJS.Platform
+  /** Is Git symlink support available at the root? Consulted on Windows only. */
+  gitSymlinks?: (root: string) => boolean
+  log: Logger
 }
 
 /**
- * Analysis always wins over the default pattern. Precedence: dir-level
- * symlinks (collapsed into one physical dir) → per-skill symlinks (majority
- * vote) → duplicated skills without symlinks (copy vote) → tie ⇒ default.
+ * Decides the layout skills are materialized in.
  *
- * Default: real files in `.agents/skills/` (or the first target
+ * Dir-level symlinks among the targets collapse into one physical dir. The
+ * mode comes from the config (default: symlink) — except on Windows without
+ * Git symlink support, where symlink mode falls back to copy mode. Symlink
+ * mode needs nothing else: every physical dir gets a package link per skill.
+ *
+ * Copy mode mirrors skills between the physical dirs, and the existing
+ * structure always wins over the default pattern. Precedence: per-skill
+ * symlinks (majority vote) → duplicated skills without symlinks (copy vote) →
+ * tie ⇒ default: real files in `.agents/skills/` (or the first target
  * alphabetically), per-skill relative symlinks elsewhere — except on Windows
  * without Git symlink support, where copies are the default.
  */
-export function analyzeStructure(
-  root: string,
-  targetDirs: string[],
-  platform: NodeJS.Platform,
-  gitSymlinks: (root: string) => boolean = detectGitSymlinkSupport,
-): Analysis {
-  // Collapse dir-level symlinks: group targets by physical identity.
+export function analyzeStructure(options: AnalyzeOptions): Analysis {
+  const { root, config, platform, gitSymlinks = detectGitSymlinkSupport, log } = options
+  const physicalDirs = collapseDirLevelSymlinks(root, options.targetDirs)
+
+  // Symlinks are assumed to work everywhere but on Windows, where they need Git symlink support.
+  let symlinksAvailable: boolean | undefined
+  const canSymlink = () => (symlinksAvailable ??= platform !== 'win32' || gitSymlinks(root))
+
+  const mode = config.mode ?? DEFAULT_MODE
+  if (mode === 'symlink') {
+    if (canSymlink()) return { mode, physicalDirs }
+    log.info('Git symlink support is unavailable on this machine — skills are copied instead of symlinked')
+  }
+  return { mode: 'copy', physicalDirs, ...mirrorPattern(root, physicalDirs, canSymlink) }
+}
+
+/** Group the targets by the physical dir they resolve to; each group is one physical dir (its non-symlink member). */
+function collapseDirLevelSymlinks(root: string, targetDirs: string[]): string[] {
   const groups = new Map<string, { dir: string; isLink: boolean }[]>()
   for (const dir of targetDirs) {
     const isLink = lstatType(dir) === 'symlink'
@@ -38,8 +60,21 @@ export function analyzeStructure(
     const nonLink = members.find((m) => !m.isLink)
     physicalDirs.push(nonLink ? nonLink.dir : real)
   }
-  physicalDirs.sort((a, b) => (relDisplay(root, a) < relDisplay(root, b) ? -1 : 1))
+  return physicalDirs.sort((a, b) => (relDisplay(root, a) < relDisplay(root, b) ? -1 : 1))
+}
 
+interface SkillInstance {
+  kind: 'real' | 'link'
+  /** For links: the physical target dir the link points into (if any). */
+  linkPrimary?: string
+}
+
+/** Copy mode: the mirror style and primary dir, from the existing structure — the default pattern only on a tie. */
+function mirrorPattern(
+  root: string,
+  physicalDirs: string[],
+  canSymlink: () => boolean,
+): { style: MirrorStyle; primaryDir: string } {
   // Collect existing skill entries per physical dir.
   const physicalReal = new Map(physicalDirs.map((dir) => [dir, realpathSafe(dir) ?? dir]))
   const entries = new Map<string, Map<string, SkillInstance>>()
@@ -81,9 +116,8 @@ export function analyzeStructure(
     }
   }
 
-  // Consulted only when the vote ties (the default applies): on Windows,
-  // symlinks are the default only where Git symlink support is available.
-  const defaultStyle = (): MirrorStyle => (platform === 'win32' && !gitSymlinks(root) ? 'copy' : 'symlink')
+  // The default applies only when the vote ties.
+  const defaultStyle = (): MirrorStyle => (canSymlink() ? 'symlink' : 'copy')
   const style: MirrorStyle =
     styleVotes.symlink > styleVotes.copy ? 'symlink' : styleVotes.copy > styleVotes.symlink ? 'copy' : defaultStyle()
 
@@ -96,5 +130,5 @@ export function analyzeStructure(
     primaryDir = winners.includes(defaultPrimary) ? defaultPrimary : winners[0]
   }
 
-  return { physicalDirs, style, primaryDir }
+  return { style, primaryDir }
 }

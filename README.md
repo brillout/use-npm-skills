@@ -18,53 +18,46 @@ npx use-npm-skills
 1 skill(s) in sync across .agents/skills
 ```
 
-The skill is now a regular folder in your repo:
+The skill now shows up in your skills directory, as a symlink into the package:
 
 ```
 .agents/skills/
-└── awesome-memory/
-    ├── SKILL.md
-    └── source.json    ← marks the skill as managed by use-npm-skills
+└── awesome-memory -> ../../node_modules/skill-awesome-memory/skills/awesome-memory
 ```
 
-Commit it.
-
-> [!NOTE]
-> The skill is plain files in your repo: teammates and agents get it from a fresh clone, with no install step. The package in `node_modules` is only where updates come from.
+Commit it. The link is relative, so it works wherever the repo is cloned — a teammate gets the skill with `npm install`, like any dependency.
 
 Requires Node 18+.
 
 ### Updating and removing skills
 
-`use-npm-skills` itself never runs by itself — it installs no hooks ([why?](#faq)). Skill packages can opt into running it for you on install ([how](#automatic-installation)); for the ones that don't, and after removing a package (few package managers run uninstall scripts), run it again:
+Updating a skill is updating the package — the link points at whatever version is installed, so there is nothing else to do:
 
 ```shell
-npm update skill-awesome-memory    && npx use-npm-skills   # update a skill
-npm uninstall skill-awesome-memory && npx use-npm-skills   # remove a skill (its folder is cleaned up too)
+npm update skill-awesome-memory
+```
+
+`use-npm-skills` itself never runs by itself — it installs no hooks ([why?](#faq)). Skill packages can opt into running it for you when they're installed ([how](#automatic-installation)); for the ones that don't, and after removing a package (few package managers run uninstall scripts), run it again:
+
+```shell
+npm install --save-dev skill-other     && npx use-npm-skills   # add a skill
+npm uninstall skill-awesome-memory     && npx use-npm-skills   # remove a skill (its link is cleaned up too)
 ```
 
 Running it extra times is always safe — when everything is in sync, it does nothing.
 
-### Your own skills, your own edits
+### Your own skills
 
-Skills you wrote yourself (any skill folder without a `source.json`) are never touched.
+Anything in a skills directory that isn't a link into a package is yours: `use-npm-skills` never modifies or deletes it. If a skill of yours stands where an installed skill of the same name would go, yours wins and the installed one is skipped with a warning.
 
-If you edit an *installed* skill, `use-npm-skills` notices and refuses to overwrite you:
-
-```
-Warning: skill `awesome-memory` was modified locally — to keep your changes, remove
-`skill-awesome-memory` or add it to `"exclude"` in `.use-npm-skills.json`; or run
-`npx use-npm-skills --force` to override your changes
-```
-
-After you remove (or `exclude`) the package, the edited skill stays in your repo and becomes an ordinary skill of your own. And `--force` asks per skill before discarding anything.
+To make an installed skill your own — tweak a prompt, add a file — replace the link with a real copy of the skill's folder, then remove the package (or list it in `exclude`, see [configuration](#configuration)) so the tool stops reminding you about it.
 
 ### Where skills go
 
 - **Your repo already has skills dirs?** They're detected and used — `skills/` at the root, or any `*/skills/` one level down that contains at least one skill: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, and whatever the next agent brings.
 - **No skills dir yet?** `.agents/skills/` is created. If your agent only reads its own dir (say, `.claude/skills/`), list both in the [configuration](#configuration).
-- **Several skills dirs?** Each skill is written once and mirrored into the others with relative symlinks (plain copies on Windows machines without [Git symlink support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201)). If your repo already mirrors skills differently — one dir symlinked to another, or duplicated copies — your existing layout is followed.
-- **Monorepo, or a JavaScript project nested in a subdirectory?** Skills are installed at the Git repository root — where your agents look for them — whatever directory your lockfile and `node_modules/` live in (outside a Git repo: next to the nearest lockfile, or else in the current directory). Every `node_modules/` in the repo is crawled, so a skill package that only a workspace package or a nested project depends on is found too.
+- **Several skills dirs?** Each skill is linked into every one of them. A skills dir that is itself a symlink to another counts once.
+- **Monorepo, or a JavaScript project nested in a subdirectory?** Skills are installed at the Git repository root — where your agents look for them — whatever directory your lockfile and `node_modules/` live in (outside a Git repo: next to the nearest lockfile, or else in the current directory). Every `node_modules/` in the repo is crawled, so a skill package that only a workspace package or a nested project depends on is found too, and linked from there.
 
 ### Configuration
 
@@ -78,7 +71,7 @@ Optional — `.use-npm-skills.json` at the project root:
 ```
 
 - `skillsDirs`: use exactly these dirs instead of auto-detection.
-- `exclude`: ignore an installed skill package, e.g. a dependency whose `skills/` directory isn't meant for your agents (its skills are removed — or kept as yours if you edited them).
+- `exclude`: ignore an installed skill package, e.g. a dependency whose `skills/` directory isn't meant for your agents (its links are removed).
 
 ## Publishing skills
 
@@ -109,11 +102,11 @@ description: Maintain a MEMORY.md of project learnings across sessions.
 When you learn something about this project that isn't written down anywhere, ...
 ```
 
-That's it — `npm publish`. The `skills/` directory is the only marker — no keyword, no manifest field — and it's the layout [skills-npm](https://github.com/antfu/skills-npm) established, so one package serves both tools. The **directory name** under `skills/` becomes the skill's folder name in the user's repo.
+That's it — `npm publish`. The `skills/` directory is the only marker — no keyword, no manifest field — and it's the layout [skills-npm](https://github.com/antfu/skills-npm) established, so one package serves both tools. The **directory name** under `skills/` becomes the skill's name in the user's repo.
 
 ### Skills with more files
 
-Everything in the skill's directory is installed — ship reference docs, scripts, templates next to the `SKILL.md`:
+Everything in the skill's directory is part of the skill — ship reference docs, scripts, templates next to the `SKILL.md`:
 
 ```
 skill-awesome-memory/
@@ -164,7 +157,7 @@ Optionally, let your package install its skills by itself:
 
 Declare `use-npm-skills` as a peer dependency, not a dependency: npm, pnpm, and Bun install a missing peer dependency by themselves, and when the project already has `use-npm-skills` (the dev dependency the install instructions recommend), that copy runs your hook. The project, not your package, decides which version of the tool writes its skills directories — and there is exactly one.
 
-`install-package` installs your package's skills — and nothing else — when your package is installed. It also checks the other installed skill packages and prints an error for every skill a run of `npx use-npm-skills` would change (missing, outdated, left over, edited), so a stale skills directory is caught at the next install. It never fails a local install (a failing `postinstall` would abort the whole install), but it does fail when the `CI` environment variable is set, so CI goes red. `uninstall-package` removes your package's skills — where the package manager runs uninstall scripts (npm 7+ and pnpm don't; the next `npx use-npm-skills` cleans up).
+`install-package` installs your package's skills — and nothing else — when your package is installed. It also checks the other installed skill packages and prints an error for every skill a run of `npx use-npm-skills` would change (missing, left over, or pointing elsewhere), so a stale skills directory is caught at the next install. It never fails a local install (a failing `postinstall` would abort the whole install), but it does fail when the `CI` environment variable is set, so CI goes red. `uninstall-package` removes your package's skills — where the package manager runs uninstall scripts (npm 7+ and pnpm don't; the next `npx use-npm-skills` cleans up).
 
 Caveats: pnpm and Bun don't run dependencies' scripts until the user approves them; Yarn doesn't install peer dependencies, so a Yarn project needs `use-npm-skills` among its own dev dependencies; most package managers only show a dependency's script output when the script fails (npm needs `--foreground-scripts`), so locally the report is easy to miss and CI is where it reliably bites; and without the hooks your users simply run `npx use-npm-skills` after installing — say so in your README.
 
@@ -179,11 +172,10 @@ npx use-npm-skills
 
 ## How it works
 
-- Installed skills are real, committed files. Nothing is gitignored, and nothing in your repo points into `node_modules` — a fresh clone is fully skill-aware before anyone runs anything.
-- Every installed skill carries a `source.json`: which package and version it came from, plus a content hash. The hash is how local edits are detected (line-ending changes from Git's `autocrlf` don't count). No `source.json` = your skill, hands off.
-- Symlinks are only ever created between skills dirs — relative, so they survive cloning to any path.
+- Each installed skill is a relative symlink from the skills dir to the skill's directory inside its package: `.agents/skills/awesome-memory -> ../../node_modules/skill-awesome-memory/skills/awesome-memory`. The link goes through the package's top-level `node_modules/<package>/` path — never through a package manager's internal, versioned paths (pnpm's `node_modules/.pnpm/…`) — so it stays valid across updates and never needs rewriting.
+- The links are committed with the repo; nothing is gitignored. A fresh clone has every skill as soon as `npm install` has run.
+- Links into packages are the only thing the tool manages: it recognizes them by where they point, and removes them once their package no longer provides the skill. Everything else in a skills dir is yours.
 - The tool itself has zero install hooks and zero runtime dependencies.
-- The exit code is non-zero when locally-modified skills were found — handy in CI to catch drift.
 
 The full design rationale lives in [DECISIONS.md](./DECISIONS.md).
 
@@ -195,14 +187,14 @@ The full design rationale lives in [DECISIONS.md](./DECISIONS.md).
 **Why install `use-npm-skills` itself?**
 So `npx` runs your local copy: the tool that writes your skills is pinned by your lockfile like everything else — the whole team and CI sync with the same version, instead of `npx` prompting to download whatever the latest release happens to be.
 
-**Why commit the skills instead of gitignoring them?**
-An agent reading a fresh clone should see every skill without anyone running an install first.
+**Do I commit the links?**
+Yes. They're tiny, relative, and with them a fresh clone has every skill right after `npm install` — nobody has to remember to run anything.
 
 **What if two installed packages provide a skill with the same name?**
 The first package alphabetically wins; the other is skipped with a warning.
 
 **Windows?**
-Supported. When [Git symlink support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) is available — `core.symlinks` enabled and symlink creation permitted (e.g. Developer Mode) — skills are mirrored with symlinks like on any other platform. Otherwise they're copied into each skills dir instead.
+Supported. When [Git symlink support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) is available — `core.symlinks` enabled and symlink creation permitted (e.g. Developer Mode) — skills are linked like on any other platform. Otherwise they're copied into each skills dir instead.
 
 **Yarn PnP?**
 Not supported (there's no `node_modules` to read skills from) — see [#7](https://github.com/brillout/use-npm-skills/issues/7).

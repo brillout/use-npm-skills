@@ -17,7 +17,7 @@ The steps depend on each other's outputs (e.g. mirroring decisions must be made 
 
 #### Business logic
 
-A run executes exactly: resolve project root (`resolveRoot.SPEC.md`) → load config (`config.SPEC.md`) → enumerate skill packages (`enumerate.SPEC.md`) → determine target skills directories (`targets.SPEC.md`) → analyze the existing structure (`analyze.SPEC.md`) → materialize each skill (`materialize.SPEC.md`) → prune orphans (`prune.SPEC.md`). With `--force`, the list of locally modified skills is computed and shown before any overwriting starts, so the user sees everything at stake up front.
+A run executes exactly: resolve project root (`resolveRoot.SPEC.md`) → load config (`config.SPEC.md`) → enumerate skill packages (`enumerate.SPEC.md`) → determine target skills directories (`targets.SPEC.md`) → decide the layout (`analyze.SPEC.md`) → materialize each skill (`materialize.SPEC.md`) → prune orphans (`prune.SPEC.md`). With `--force`, the list of locally modified skills is computed and shown before any overwriting starts, so the user sees everything at stake up front.
 
 ### Preconditions
 
@@ -41,7 +41,7 @@ The developer wants to keep a skill package installed without the tool materiali
 
 #### Business logic
 
-Each installed skill package whose name is listed in the config file's `exclude` has each of its skills reported as excluded and is otherwise treated exactly as if it were not installed — none of its skills are materialized, and their existing materialized copies are handled like those of any uninstalled package: removed if unmodified, kept as the user's own skill if locally edited (see `prune.SPEC.md`).
+Each installed skill package whose name is listed in the config file's `exclude` has each of its skills reported as excluded and is otherwise treated exactly as if it were not installed — none of its skills are materialized, and their existing entries are handled like those of any uninstalled package: links and unmodified copies removed, a locally edited copy kept as the user's own skill (see `prune.SPEC.md`).
 
 ### Result and exit code
 
@@ -51,7 +51,7 @@ Users and scripts need to know what a run did without reading every log line.
 
 #### Business logic
 
-When no skill package is installed, the run says so and explains what makes a package a skill package. Otherwise it summarizes how many skills are in sync across which skills directories. The run's result carries the project root, the target skills directories, the mirroring analysis, one outcome per skill, and all warnings. Exit code: 1 if locally modified skills were found and left untouched, 0 otherwise.
+When no skill package is installed, the run says so and explains what makes a package a skill package. Otherwise it summarizes how many skills are in sync across which skills directories. The run's result carries the project root, the target skills directories, the layout, one outcome per skill, and all warnings. Exit code: 1 if locally modified skills were found and left untouched, 0 otherwise.
 
 ## Before modifying/creating SPEC.md files
 

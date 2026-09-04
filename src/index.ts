@@ -3,6 +3,7 @@ export { installPackage, uninstallPackage, type HookOptions, type HookResult } f
 export { Logger } from './logger.js'
 export {
   CONFIG_FILE,
+  DEFAULT_MODE,
   SOURCE_JSON,
   UsageError,
   type Action,
@@ -10,6 +11,7 @@ export {
   type Analysis,
   type Config,
   type MirrorStyle,
+  type Mode,
   type PackageSkill,
   type SourceMeta,
   type SyncResult,

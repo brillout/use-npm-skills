@@ -44,6 +44,27 @@ export function skillPkg(name: string, skillName: string, version = '1.0.0', fil
   return { 'package.json': pkgJson(name, version), skills: { [skillName]: skillDir(skillName, files) } }
 }
 
+/**
+ * Install (or update) a package the way pnpm lays it out: the package lives in
+ * the versioned virtual store, and the top-level node_modules/<name> entry is
+ * a symlink to it.
+ */
+export function pnpmInstall(root: string, name: string, version: string, tree: Tree): void {
+  makeTree(path.join(root, 'node_modules', '.pnpm', `${name}@${version}`, 'node_modules', name), tree)
+  const link = path.join(root, 'node_modules', name)
+  fs.rmSync(link, { force: true })
+  fs.symlinkSync(path.join('.pnpm', `${name}@${version}`, 'node_modules', name), link, 'dir')
+}
+
+/** Config opting into copy mode (symlink mode is the default). */
+export const copyMode: Tree = { '.use-npm-skills.json': JSON.stringify({ mode: 'copy' }) }
+
+/** Two skills dirs, each already holding a user-authored skill so that both qualify as targets. */
+export const twoTargets: Tree = {
+  '.agents': { skills: { u1: skillDir('u1') } },
+  '.claude': { skills: { u2: skillDir('u2') } },
+}
+
 export async function run(root: string, options: Partial<SyncOptions> = {}) {
   const log = new Logger(true)
   const result = await sync({ cwd: root, platform: 'linux', log, ...options })
