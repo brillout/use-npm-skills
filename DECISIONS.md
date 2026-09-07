@@ -2,6 +2,10 @@ Non-obvious decisions only, grouped by business-logic flow, anything not listed 
 to the implementer's judgment, flag conflicts instead of silently deviating, keep
 outdated decisions (no history).
 
+A bullet is a person's pick, and says what it was picked over. What the code does belongs
+in SPEC.md; a choice made while implementing is the implementer's judgment, not a
+decision. An AI proposes a bullet and asks; it never adds or rewrites one.
+
 ## Flow: sync (`npx use-npm-skills`, the default action)
 Resolve project root → enumerate installed skill packages → determine target skills dirs
 → analyze existing structure → materialize each skill → prune orphaned skills.
