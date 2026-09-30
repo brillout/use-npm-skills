@@ -8,6 +8,7 @@
     "strict": true,
     "declaration": true,
     "skipLibCheck": true,
+    "types": ["node"],
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true
   },
