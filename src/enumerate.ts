@@ -13,8 +13,12 @@ import { UsageError, type PackageSkill } from './types.js'
  * dependency's own tree and is not crawled. The same package in several of
  * them counts once: the first copy that ships skills wins. Every subdirectory
  * of `skills/` is a skill, taken as-is: nothing is validated and nothing is
- * warned about. The result is sorted by node_modules dir, package name, then
- * skill name, which makes every later "first one wins" rule deterministic.
+ * warned about. A skill's dir is recorded through the package's top-level
+ * `node_modules/<package>/` entry, never resolved through package-manager
+ * symlinks (pnpm's versioned store): that path is stable across updates and
+ * is what symlink mode links to. The result is sorted by node_modules dir,
+ * package name, then skill name, which makes every later "first one wins"
+ * rule deterministic.
  */
 export function enumerateSkills(root: string): PackageSkill[] {
   const nodeModulesDirs = findNodeModulesDirs(root)

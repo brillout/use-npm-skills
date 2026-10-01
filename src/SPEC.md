@@ -5,11 +5,11 @@ Sync runs as a pipeline; each step is one file:
 1. Resolve the project root [2] — `resolveRoot.SPEC.md`
 2. Enumerate the skills of the installed skill packages [3] — `enumerate.SPEC.md`
 3. Determine the target skills directories [4] — `targets.SPEC.md`
-4. Analyze the existing mirroring structure — `analyze.SPEC.md`
+4. Decide the layout: the mode and, in copy mode, how the skills directories mirror each other — `analyze.SPEC.md`
 5. Materialize [5] each skill — `materialize.SPEC.md`
 6. Prune orphaned skills — `prune.SPEC.md`
 
-`sync.SPEC.md` describes the orchestration of these steps; `cli.SPEC.md` the command-line interface on top; `hooks.SPEC.md` the two commands a skill package's own lifecycle scripts run to install or remove that one package's skills. Supporting files: `config.SPEC.md` (the `.use-npm-skills.json` config file), `hash.SPEC.md` (skill content identity), `gitSymlinks.SPEC.md` (Windows: is Git symlink support available?), `index.SPEC.md` (library entry point), `types.SPEC.md` (shared vocabulary), `logger.SPEC.md` and `fsUtils.SPEC.md` (infrastructure).
+`sync.SPEC.md` describes the orchestration of these steps; `cli.SPEC.md` the command-line interface on top; `hooks.SPEC.md` the two commands a skill package's own lifecycle scripts run to install or remove that one package's skills. Supporting files: `packageLink.SPEC.md` (the package link — what symlink mode materializes), `config.SPEC.md` (the `.use-npm-skills.json` config file), `hash.SPEC.md` (a copied skill's content identity), `gitSymlinks.SPEC.md` (Windows: is Git symlink support available?), `index.SPEC.md` (library entry point), `types.SPEC.md` (shared vocabulary), `logger.SPEC.md` and `fsUtils.SPEC.md` (infrastructure).
 
 ## Glossary
 
@@ -21,11 +21,11 @@ Sync runs as a pipeline; each step is one file:
 
 [4] skills directory: a directory where AI agents look for skills (e.g. `.claude/skills/`, `.agents/skills/`); each skill in it is a subdirectory containing a `SKILL.md`.
 
-[5] materialize: write a skill shipped by a skill package [3] into the project's skills directories as real, committed files.
+[5] materialize: make a skill shipped by a skill package [3] appear in the project's skills directories — in symlink mode (the default) as a relative symlink to the skill's directory inside the package, in copy mode as a copy of its files.
 
 ## Business logic — TL;DR
 
-- **The sync pipeline** - one deterministic pass: resolve root, enumerate, target, analyze, materialize, prune.
+- **The sync pipeline** - one deterministic pass: resolve root, enumerate, target, decide the layout, materialize, prune.
 - **Package hooks** - `install-package` and `uninstall-package` run the same pipeline for a single package, from that package's own lifecycle scripts (`hooks.SPEC.md`).
 - **Reported outcome per skill** - every skill ends the run with exactly one recorded outcome, and the exit code reflects whether local modifications blocked the sync.
 
@@ -35,7 +35,7 @@ Sync runs as a pipeline; each step is one file:
 
 #### User story
 
-The developer runs `npx use-npm-skills` after adding, updating, or removing skill packages and expects the skills directories to match the installed packages afterwards — without ever losing hand-written content.
+The developer runs `npx use-npm-skills` after adding or removing skill packages and expects the skills directories to match the installed packages afterwards — without ever losing hand-written content.
 
 #### Business logic
 
@@ -49,7 +49,7 @@ The user needs to see what the run did, and scripts (e.g. CI) need a machine-che
 
 #### Business logic
 
-Every skill processed by a run ends with exactly one outcome: added, updated, up-to-date, forcibly overwritten, kept (overwrite declined), left untouched because modified locally, skipped (user-authored content in the way, or a skill-name collision), excluded by config, removed, or adopted as user-authored. The run exits with code 0 on success and non-zero when locally modified skills were found and left untouched, or when an error occurred.
+Every skill processed by a run ends with exactly one outcome: added, updated, up-to-date, forcibly overwritten, kept (overwrite declined), left untouched because modified locally, skipped (user-authored content in the way, or a skill-name collision), excluded by config, removed (from whichever skills directories it was in), or adopted as user-authored. The run exits with code 0 on success and non-zero when locally modified skills were found and left untouched, or when an error occurred.
 
 ## Before modifying/creating SPEC.md files
 

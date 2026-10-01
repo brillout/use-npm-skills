@@ -30,7 +30,7 @@ Whatever AI agent the developer uses — Claude (`.claude/skills/`), Cursor (`.c
 
 #### Business logic
 
-Candidates are `<root>/skills/` and every `<root>/<dir>/skills/` one level below the project root, dot-directories included, `node_modules/` and `.git/` excluded. Deeper nesting (e.g. `apps/web/.claude/skills/`) is unsupported by design. A candidate qualifies as a target only if it already contains at least one skill (a subdirectory with a `SKILL.md`; a subdirectory symlink whose target contains a `SKILL.md` also counts): an existing-but-empty directory is a Git leftover, not a target.
+Candidates are `<root>/skills/` and every `<root>/<dir>/skills/` one level below the project root, dot-directories included, `node_modules/` and `.git/` excluded. Deeper nesting (e.g. `apps/web/.claude/skills/`) is unsupported by design. A candidate qualifies as a target only if it already contains at least one skill entry: a subdirectory with a `SKILL.md`, a subdirectory symlink whose target contains a `SKILL.md`, or a package link (a symlink into a package's `skills/` directory, `packageLink.SPEC.md`) — a dangling one included, since a skills directory whose packages were all uninstalled still holds links to prune. An existing-but-empty directory is a Git leftover, not a target.
 
 #### Rationale
 

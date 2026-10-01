@@ -3,9 +3,8 @@ import { analyzeStructure } from './analyze.js'
 import { loadConfig } from './config.js'
 import { enumerateSkills } from './enumerate.js'
 import { readJsonSafe, relDisplay } from './fsUtils.js'
-import { hashFileMap } from './hash.js'
 import { Logger } from './logger.js'
-import { materializeAll, readSkillFiles, stillProvided, syncStatus } from './materialize.js'
+import { materializeAll, stillProvided, syncStatus } from './materialize.js'
 import { listOrphans, pruneOrphans } from './prune.js'
 import { resolveProjectRoot } from './resolveRoot.js'
 import { discoverTargetDirs } from './targets.js'
@@ -54,7 +53,14 @@ export async function installPackage(options: HookOptions = {}): Promise<HookRes
   const own = all.filter((skill) => skill.package === pkg.name)
 
   const targetDirs = discoverTargetDirs(root, config)
-  const analysis = analyzeStructure(root, targetDirs, options.platform ?? process.platform, options.gitSymlinks)
+  const analysis = analyzeStructure({
+    root,
+    targetDirs,
+    config,
+    platform: options.platform ?? process.platform,
+    gitSymlinks: options.gitSymlinks,
+    log,
+  })
 
   const actions: Action[] = []
   if (excluded.has(pkg.name)) {
@@ -83,16 +89,10 @@ export async function installPackage(options: HookOptions = {}): Promise<HookRes
     if (claimed.has(skill.name)) continue // a name collision: the first package wins, as in a full sync
     claimed.add(skill.name)
     if (skill.package === pkg.name) continue
-    let files: Map<string, Buffer>
-    try {
-      files = readSkillFiles(skill, log)
-    } catch {
-      continue
-    }
-    const status = syncStatus(skill, hashFileMap(files), analysis)
+    const status = syncStatus(skill, analysis, log)
     if (status !== 'in sync') problems.push(`skill \`${skill.name}\` of \`${skill.package}\` is ${status}`)
   }
-  const isOrphan = (meta: { package: string }, name: string) => !stillProvided(active, meta.package, name)
+  const isOrphan = (orphanPkg: string, skill: string) => !stillProvided(active, orphanPkg, skill)
   for (const orphan of listOrphans(analysis.physicalDirs, isOrphan)) {
     problems.push(
       `skill \`${orphan.name}\` in ${relDisplay(root, orphan.dir)} is left over from ` +
@@ -114,8 +114,9 @@ export async function installPackage(options: HookOptions = {}): Promise<HookRes
 
 /**
  * `use-npm-skills uninstall-package`, run from a skill package's uninstall
- * script: removes that one package's skills — pristine ones deleted with
- * their mirror symlinks, locally modified ones adopted — and nothing else.
+ * script: removes that one package's skills — links and pristine copies
+ * deleted (a copy's mirror symlinks included), locally modified copies
+ * adopted — and nothing else.
  */
 export function uninstallPackage(options: HookOptions = {}): HookResult {
   const log = options.log ?? new Logger()
@@ -123,8 +124,15 @@ export function uninstallPackage(options: HookOptions = {}): HookResult {
   const root = resolveProjectRoot(projectDirOf(pkg.dir))
   const config = loadConfig(root, log)
   const targetDirs = discoverTargetDirs(root, config)
-  const analysis = analyzeStructure(root, targetDirs, options.platform ?? process.platform, options.gitSymlinks)
-  const actions = pruneOrphans(root, analysis.physicalDirs, (meta) => meta.package === pkg.name, log)
+  const analysis = analyzeStructure({
+    root,
+    targetDirs,
+    config,
+    platform: options.platform ?? process.platform,
+    gitSymlinks: options.gitSymlinks,
+    log,
+  })
+  const actions = pruneOrphans(root, analysis.physicalDirs, (orphanPkg) => orphanPkg === pkg.name, log)
   return { root, actions, problems: [], exitCode: 0 }
 }
 

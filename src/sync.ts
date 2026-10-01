@@ -13,7 +13,7 @@ import { CONFIG_FILE, type Action, type SyncResult } from './types.js'
 export interface SyncOptions {
   cwd?: string
   force?: boolean
-  /** For tests — defaults to process.platform (on Windows the default mirror style depends on Git symlink support). */
+  /** For tests — defaults to process.platform (on Windows, symlinks depend on Git symlink support). */
   platform?: NodeJS.Platform
   /** For tests — is Git symlink support available at the project root? Defaults to detecting it (consulted on Windows only). */
   gitSymlinks?: (root: string) => boolean
@@ -51,7 +51,7 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
   }
 
   const targetDirs = discoverTargetDirs(root, config)
-  const analysis = analyzeStructure(root, targetDirs, platform, options.gitSymlinks)
+  const analysis = analyzeStructure({ root, targetDirs, config, platform, gitSymlinks: options.gitSymlinks, log })
 
   if (force && options.onTamperedList) {
     const tampered = listTampered(active, analysis)
@@ -67,9 +67,7 @@ export async function sync(options: SyncOptions = {}): Promise<SyncResult> {
     log,
   })
   actions.push(...materialized.actions)
-  actions.push(
-    ...pruneOrphans(root, analysis.physicalDirs, (meta, name) => !stillProvided(active, meta.package, name), log),
-  )
+  actions.push(...pruneOrphans(root, analysis.physicalDirs, (pkg, name) => !stillProvided(active, pkg, name), log))
 
   if (all.length === 0) {
     log.info(

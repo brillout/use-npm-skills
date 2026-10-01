@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { describe, expect, test } from 'vitest'
 import {
+  copyMode,
   exists,
   isLink,
   j,
@@ -8,12 +9,14 @@ import {
   makeProject,
   makeTree,
   pkgJson,
+  pnpmInstall,
   read,
   readSource,
   run,
   skillDir,
   skillMd,
   skillPkg,
+  twoTargets,
 } from './helpers.js'
 
 describe('root resolution', () => {
@@ -61,6 +64,7 @@ describe('root resolution', () => {
     const { result } = await run(j(root, 'node'))
     expect(result.root).toBe(root)
     expect(result.actions.map((a) => a.skill)).toEqual(['s1', 's2'])
+    expect(linkTarget(j(root, '.agents', 'skills', 's1'))).toBe('../../node/node_modules/p1/skills/s1')
     expect(exists(j(root, '.agents', 'skills', 's1', 'SKILL.md'))).toBe(true)
     expect(exists(j(root, 'node', '.agents'))).toBe(false)
   })
@@ -96,6 +100,7 @@ describe('enumeration', () => {
     })
     const { result } = await run(root)
     expect(result.actions).toMatchObject([{ kind: 'added', skill: 'acme-skill', package: '@acme/skill-pkg' }])
+    expect(linkTarget(j(root, '.agents', 'skills', 'acme-skill'))).toBe('../../node_modules/@acme/skill-pkg/skills/acme-skill')
   })
 
   test('root SKILL.md, skill/, a files-only skills/, or skills/ without a package.json make no skill package', async () => {
@@ -114,7 +119,7 @@ describe('enumeration', () => {
     expect(exists(j(root, '.agents'))).toBe(false)
   })
 
-  test('a package shipping several skills: each is materialized with its own source.json', async () => {
+  test('a package shipping several skills: each is materialized on its own', async () => {
     const root = makeProject({
       node_modules: {
         'my-lib': {
@@ -131,13 +136,13 @@ describe('enumeration', () => {
     ])
     for (const skill of ['my-lib-setup', 'my-lib-testing']) {
       const dir = j(root, '.agents', 'skills', skill)
+      expect(linkTarget(dir)).toBe(`../../node_modules/my-lib/skills/${skill}`)
       expect(read(j(dir, 'SKILL.md'))).toBe(skillMd(skill))
-      expect(readSource(dir)).toMatchObject({ package: 'my-lib', version: '3.1.0' })
     }
     expect(fs.readdirSync(j(root, '.agents', 'skills'))).toEqual(['my-lib-setup', 'my-lib-testing'])
   })
 
-  test('every subdirectory of skills/ is copied as-is: nothing is validated, nothing is warned about', async () => {
+  test('every subdirectory of skills/ is materialized as-is: nothing is validated, nothing is warned about', async () => {
     const root = makeProject({
       node_modules: {
         p: {
@@ -171,6 +176,8 @@ describe('enumeration', () => {
     })
     const { result } = await run(root)
     expect(result.actions.map((a) => a.skill)).toEqual(['s1', 's3', 's2'])
+    expect(linkTarget(j(root, '.agents', 'skills', 's2'))).toBe('../../packages/a/node_modules/p2/skills/s2')
+    expect(linkTarget(j(root, '.agents', 'skills', 's3'))).toBe('../../apps/deep/web/node_modules/p3/skills/s3')
     expect(exists(j(root, '.agents', 'skills', 's4'))).toBe(false)
   })
 
@@ -200,45 +207,68 @@ describe('enumeration', () => {
       ['added', 's'],
       ['added', 'q-skill'],
     ])
+    expect(linkTarget(j(root, '.agents', 'skills', 's'))).toBe('../../node_modules/p/skills/s')
     expect(read(j(root, '.agents', 'skills', 's', 'SKILL.md'))).toContain('from root')
-    expect(readSource(j(root, '.agents', 'skills', 's')).version).toBe('1.0.0')
+    expect(linkTarget(j(root, '.agents', 'skills', 'q-skill'))).toBe('../../packages/a/node_modules/q/skills/q-skill')
   })
 })
 
-describe('materialization', () => {
-  test('the full contents of skills/<name>/ are materialized — package files outside it are not', async () => {
+describe('symlink mode (the default)', () => {
+  test('each skill is a relative symlink to its directory inside the package', async () => {
     const root = makeProject({
       node_modules: {
         'skill-pkg': {
-          ...skillPkg('skill-pkg', 'my-skill', '2.0.0', {
-            'reference.md': 'extra docs',
-            scripts: { 'run.js': 'console.log(1)' },
-          }),
+          ...skillPkg('skill-pkg', 'my-skill', '2.0.0', { 'reference.md': 'extra docs' }),
           'README.md': 'not part of the skill',
         },
       },
     })
-    await run(root)
-    const skillDir = j(root, '.agents', 'skills', 'my-skill')
-    expect(read(j(skillDir, 'SKILL.md'))).toBe(skillMd('my-skill'))
-    expect(read(j(skillDir, 'reference.md'))).toBe('extra docs')
-    expect(read(j(skillDir, 'scripts', 'run.js'))).toBe('console.log(1)')
-    expect(exists(j(skillDir, 'README.md'))).toBe(false)
-    expect(exists(j(skillDir, 'package.json'))).toBe(false)
-    expect(readSource(skillDir)).toEqual({
-      package: 'skill-pkg',
-      version: '2.0.0',
-      hash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
-    })
+    const { result } = await run(root)
+    expect(result.analysis?.mode).toBe('symlink')
+    expect(result.actions).toEqual([{ kind: 'added', skill: 'my-skill', package: 'skill-pkg', detail: '.agents/skills' }])
+    const link = j(root, '.agents', 'skills', 'my-skill')
+    expect(isLink(link)).toBe(true)
+    expect(linkTarget(link)).toBe('../../node_modules/skill-pkg/skills/my-skill')
+    expect(read(j(link, 'SKILL.md'))).toBe(skillMd('my-skill'))
+    expect(read(j(link, 'reference.md'))).toBe('extra docs')
+    expect(exists(j(link, 'README.md'))).toBe(false)
+    expect(exists(j(link, 'source.json'))).toBe(false)
   })
 
-  test('the materialized dir name is the skill name, not the package name', async () => {
+  test('the materialized name is the skill name, not the package name', async () => {
     const root = makeProject({
       node_modules: { 'some-npm-name': skillPkg('some-npm-name', 'pretty-name') },
     })
     await run(root)
     expect(exists(j(root, '.agents', 'skills', 'pretty-name', 'SKILL.md'))).toBe(true)
     expect(exists(j(root, '.agents', 'skills', 'some-npm-name'))).toBe(false)
+  })
+
+  test("the link goes through the package's top-level node_modules/ entry — never pnpm's versioned store path", async () => {
+    const root = makeProject()
+    pnpmInstall(root, 'p', '1.0.0', skillPkg('p', 's', '1.0.0', { 'SKILL.md': skillMd('s', 'v1') }))
+    const { result } = await run(root)
+    expect(result.actions).toMatchObject([{ kind: 'added', skill: 's', package: 'p' }])
+    const link = j(root, '.agents', 'skills', 's')
+    expect(linkTarget(link)).toBe('../../node_modules/p/skills/s')
+    expect(read(j(link, 'SKILL.md'))).toContain('v1')
+
+    // An update repoints node_modules/p at the new version: the link follows, without a run.
+    pnpmInstall(root, 'p', '2.0.0', skillPkg('p', 's', '2.0.0', { 'SKILL.md': skillMd('s', 'v2') }))
+    expect(read(j(link, 'SKILL.md'))).toContain('v2')
+    const second = await run(root)
+    expect(second.result.actions).toEqual([expect.objectContaining({ kind: 'up-to-date', skill: 's' })])
+    expect(linkTarget(link)).toBe('../../node_modules/p/skills/s')
+  })
+
+  test("a link to pnpm's versioned store path is re-pointed to the stable path", async () => {
+    const root = makeProject()
+    pnpmInstall(root, 'p', '1.0.0', skillPkg('p', 's'))
+    fs.mkdirSync(j(root, '.agents', 'skills'), { recursive: true })
+    fs.symlinkSync('../../node_modules/.pnpm/p@1.0.0/node_modules/p/skills/s', j(root, '.agents', 'skills', 's'), 'dir')
+    const { result } = await run(root)
+    expect(result.actions).toEqual([expect.objectContaining({ kind: 'updated', skill: 's' })])
+    expect(linkTarget(j(root, '.agents', 'skills', 's'))).toBe('../../node_modules/p/skills/s')
   })
 
   test('skill-name collision: first package alphabetically wins', async () => {
@@ -249,38 +279,10 @@ describe('materialization', () => {
       },
     })
     const { result, log } = await run(root)
+    expect(linkTarget(j(root, '.agents', 'skills', 'shared-name'))).toBe('../../node_modules/aaa-pkg/skills/shared-name')
     expect(read(j(root, '.agents', 'skills', 'shared-name', 'SKILL.md'))).toContain('from aaa')
     expect(result.actions).toContainEqual(expect.objectContaining({ kind: 'skipped-collision', package: 'zzz-pkg' }))
     expect(log.warnings.join('\n')).toMatch(/provided by both/)
-  })
-
-  test('updates: changed content is replaced, stale files removed', async () => {
-    const root = makeProject({
-      node_modules: { p: skillPkg('p', 's', '1.0.0', { 'old.md': 'old' }) },
-    })
-    await run(root)
-    expect(exists(j(root, '.agents', 'skills', 's', 'old.md'))).toBe(true)
-
-    makeTree(j(root, 'node_modules'), { p: skillPkg('p', 's', '2.0.0', { 'new.md': 'new' }) })
-    fs.rmSync(j(root, 'node_modules', 'p', 'skills', 's', 'old.md'))
-    const { result } = await run(root)
-    const skillDir = j(root, '.agents', 'skills', 's')
-    expect(result.actions).toContainEqual(expect.objectContaining({ kind: 'updated', skill: 's' }))
-    expect(exists(j(skillDir, 'old.md'))).toBe(false)
-    expect(read(j(skillDir, 'new.md'))).toBe('new')
-    expect(readSource(skillDir).version).toBe('2.0.0')
-  })
-
-  test('version-only bump refreshes source.json without touching content', async () => {
-    const root = makeProject({ node_modules: { p: skillPkg('p', 's', '1.0.0') } })
-    await run(root)
-    const before = readSource(j(root, '.agents', 'skills', 's'))
-    makeTree(j(root, 'node_modules'), { p: { 'package.json': pkgJson('p', '1.0.1') } })
-    const { result } = await run(root)
-    const after = readSource(j(root, '.agents', 'skills', 's'))
-    expect(result.actions).toContainEqual(expect.objectContaining({ kind: 'updated' }))
-    expect(after.version).toBe('1.0.1')
-    expect(after.hash).toBe(before.hash)
   })
 
   test('a second run is idempotent (up-to-date)', async () => {
@@ -289,6 +291,75 @@ describe('materialization', () => {
     const { result } = await run(root)
     expect(result.actions).toEqual([expect.objectContaining({ kind: 'up-to-date', skill: 's' })])
     expect(result.exitCode).toBe(0)
+  })
+
+  test('several skills dirs: each gets its own link into the package', async () => {
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') }, ...twoTargets })
+    const { result } = await run(root)
+    expect(result.actions).toEqual([{ kind: 'added', skill: 's', package: 'p', detail: '.agents/skills, .claude/skills' }])
+    for (const dir of ['.agents', '.claude']) {
+      expect(linkTarget(j(root, dir, 'skills', 's'))).toBe('../../node_modules/p/skills/s')
+      expect(read(j(root, dir, 'skills', 's', 'SKILL.md'))).toBe(skillMd('s'))
+    }
+  })
+
+  test('a skills dir that is a symlink to another counts once', async () => {
+    const root = makeProject({
+      node_modules: { p: skillPkg('p', 's') },
+      '.agents': { skills: { u1: skillDir('u1') } },
+      '.claude': {},
+    })
+    fs.symlinkSync(j('..', '.agents', 'skills'), j(root, '.claude', 'skills'))
+    const { result } = await run(root)
+    expect(result.analysis?.physicalDirs).toEqual([j(root, '.agents', 'skills')])
+    expect(linkTarget(j(root, '.agents', 'skills', 's'))).toBe('../../node_modules/p/skills/s')
+    // visible through the dir-level link, but not a separate entry
+    expect(exists(j(root, '.claude', 'skills', 's', 'SKILL.md'))).toBe(true)
+    expect(isLink(j(root, '.claude', 'skills'))).toBe(true)
+  })
+
+  test('a skills dir added later gets its links on the next run', async () => {
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
+    await run(root) // links into .agents/skills
+    makeTree(root, { '.cursor': { skills: { u: skillDir('u') } } })
+    const { result } = await run(root)
+    expect(result.actions).toEqual([{ kind: 'added', skill: 's', package: 'p', detail: '.agents/skills, .cursor/skills' }])
+    expect(linkTarget(j(root, '.cursor', 'skills', 's'))).toBe('../../node_modules/p/skills/s')
+  })
+
+  test('copies (from copy mode) are replaced by links, their mirror symlinks included', async () => {
+    const root = makeProject({ ...copyMode, node_modules: { p: skillPkg('p', 's') }, ...twoTargets })
+    await run(root)
+    expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
+    expect(linkTarget(j(root, '.claude', 'skills', 's'))).toBe('../../.agents/skills/s')
+
+    fs.rmSync(j(root, '.use-npm-skills.json'))
+    const { result } = await run(root)
+    expect(result.actions).toEqual([{ kind: 'updated', skill: 's', package: 'p', detail: '.agents/skills, .claude/skills' }])
+    for (const dir of ['.agents', '.claude']) {
+      expect(linkTarget(j(root, dir, 'skills', 's'))).toBe('../../node_modules/p/skills/s')
+    }
+    expect(exists(j(root, '.agents', 'skills', 's', 'source.json'))).toBe(false)
+  })
+
+  test('on Windows without Git symlink support, skills are copied instead', async () => {
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') }, ...twoTargets })
+    const { result, log } = await run(root, { platform: 'win32', gitSymlinks: () => false })
+    expect(result.analysis?.mode).toBe('copy')
+    expect(log.infos.join('\n')).toMatch(/Git symlink support is unavailable/)
+    for (const dir of ['.agents', '.claude']) {
+      expect(isLink(j(root, dir, 'skills', 's'))).toBe(false)
+      expect(readSource(j(root, dir, 'skills', 's')).package).toBe('p')
+    }
+  })
+
+  test('on Windows with Git symlink support, skills are linked like on any other platform', async () => {
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') }, ...twoTargets })
+    const { result } = await run(root, { platform: 'win32', gitSymlinks: () => true })
+    expect(result.analysis?.mode).toBe('symlink')
+    for (const dir of ['.agents', '.claude']) {
+      expect(linkTarget(j(root, dir, 'skills', 's'))).toBe('../../node_modules/p/skills/s')
+    }
   })
 })
 
@@ -307,7 +378,7 @@ describe('target dirs', () => {
   test('an existing skills dir with at least one skill is the target', async () => {
     const root = makeProject({
       node_modules: { p: skillPkg('p', 's') },
-      '.claude': { skills: { 'user-skill': { 'SKILL.md': skillMd('user-skill') } } },
+      '.claude': { skills: { 'user-skill': skillDir('user-skill') } },
     })
     await run(root)
     expect(exists(j(root, '.claude', 'skills', 's', 'SKILL.md'))).toBe(true)
@@ -317,8 +388,8 @@ describe('target dirs', () => {
   test('root-level skills/ and one-level-deep dirs are found; deeper nesting is not', async () => {
     const root = makeProject({
       node_modules: { p: skillPkg('p', 's') },
-      skills: { 'user-skill': { 'SKILL.md': skillMd('user-skill') } },
-      apps: { web: { '.claude': { skills: { deep: { 'SKILL.md': skillMd('deep') } } } } },
+      skills: { 'user-skill': skillDir('user-skill') },
+      apps: { web: { '.claude': { skills: { deep: skillDir('deep') } } } },
     })
     const { result } = await run(root)
     expect(result.analysis?.physicalDirs).toEqual([j(root, 'skills')])
@@ -326,104 +397,196 @@ describe('target dirs', () => {
     expect(exists(j(root, 'apps', 'web', '.claude', 'skills', 's'))).toBe(false)
   })
 
-  test('multiple targets: real files in .agents/skills, relative symlinks elsewhere', async () => {
-    const root = makeProject({
-      node_modules: { p: skillPkg('p', 's') },
-      '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
-      '.claude': { skills: { u2: { 'SKILL.md': skillMd('u2') } } },
-    })
-    await run(root)
-    expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
-    expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(true)
-    expect(linkTarget(j(root, '.claude', 'skills', 's'))).toBe('../../.agents/skills/s')
-    expect(read(j(root, '.claude', 'skills', 's', 'SKILL.md'))).toBe(skillMd('s'))
-  })
-
-  test('dir-level symlink: one physical dir, nothing mirrored', async () => {
-    const root = makeProject({
-      node_modules: { p: skillPkg('p', 's') },
-      '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
-      '.claude': {},
-    })
-    fs.symlinkSync(j('..', '.agents', 'skills'), j(root, '.claude', 'skills'))
+  test('a skills dir holding only links into packages qualifies — dangling ones included', async () => {
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') }, '.claude': { skills: {} } })
+    fs.symlinkSync('../../node_modules/gone/skills/old', j(root, '.claude', 'skills', 'old'), 'dir')
     const { result } = await run(root)
-    expect(result.analysis?.physicalDirs).toEqual([j(root, '.agents', 'skills')])
-    expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
-    // visible through the dir-level link, but not a separate entry
-    expect(exists(j(root, '.claude', 'skills', 's', 'SKILL.md'))).toBe(true)
-    expect(isLink(j(root, '.claude', 'skills'))).toBe(true)
+    expect(result.analysis?.physicalDirs).toEqual([j(root, '.claude', 'skills')])
+    expect(linkTarget(j(root, '.claude', 'skills', 's'))).toBe('../../node_modules/p/skills/s')
+    expect(exists(j(root, '.agents'))).toBe(false)
   })
 })
 
-describe('structure analysis wins over the default', () => {
-  test('existing per-skill symlink pattern: its primary dir is kept', async () => {
+describe('copy mode (`"mode": "copy"`)', () => {
+  test('the full contents of skills/<name>/ are copied — package files outside it are not', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkg('p', 's') },
-      '.claude': { skills: { existing: { 'SKILL.md': skillMd('existing') } } },
-      '.agents': { skills: {} },
+      ...copyMode,
+      node_modules: {
+        'skill-pkg': {
+          ...skillPkg('skill-pkg', 'my-skill', '2.0.0', {
+            'reference.md': 'extra docs',
+            scripts: { 'run.js': 'console.log(1)' },
+          }),
+          'README.md': 'not part of the skill',
+        },
+      },
     })
-    fs.mkdirSync(j(root, '.agents', 'skills'), { recursive: true })
-    fs.symlinkSync(j('..', '..', '.claude', 'skills', 'existing'), j(root, '.agents', 'skills', 'existing'))
+    const { result } = await run(root)
+    expect(result.analysis?.mode).toBe('copy')
+    const skillDir = j(root, '.agents', 'skills', 'my-skill')
+    expect(isLink(skillDir)).toBe(false)
+    expect(read(j(skillDir, 'SKILL.md'))).toBe(skillMd('my-skill'))
+    expect(read(j(skillDir, 'reference.md'))).toBe('extra docs')
+    expect(read(j(skillDir, 'scripts', 'run.js'))).toBe('console.log(1)')
+    expect(exists(j(skillDir, 'README.md'))).toBe(false)
+    expect(exists(j(skillDir, 'package.json'))).toBe(false)
+    expect(readSource(skillDir)).toEqual({
+      package: 'skill-pkg',
+      version: '2.0.0',
+      hash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+    })
+  })
+
+  test('a package shipping several skills: each copy carries its own source.json', async () => {
+    const root = makeProject({
+      ...copyMode,
+      node_modules: {
+        'my-lib': { 'package.json': pkgJson('my-lib', '3.1.0'), skills: { a: skillDir('a'), b: skillDir('b') } },
+      },
+    })
     await run(root)
-    // primary follows the existing pattern: real files in .claude/skills
-    expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
-    expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(true)
+    for (const skill of ['a', 'b']) {
+      expect(readSource(j(root, '.agents', 'skills', skill))).toMatchObject({ package: 'my-lib', version: '3.1.0' })
+    }
   })
 
-  test('existing duplicated-copies pattern: copies everywhere', async () => {
+  test('updates: changed content is replaced, stale files removed', async () => {
     const root = makeProject({
-      node_modules: { p: skillPkg('p', 's') },
-      '.agents': { skills: { existing: { 'SKILL.md': skillMd('existing') } } },
-      '.claude': { skills: { existing: { 'SKILL.md': skillMd('existing') } } },
+      ...copyMode,
+      node_modules: { p: skillPkg('p', 's', '1.0.0', { 'old.md': 'old' }) },
     })
     await run(root)
-    expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
-    expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
-    expect(readSource(j(root, '.claude', 'skills', 's')).package).toBe('p')
+    expect(exists(j(root, '.agents', 'skills', 's', 'old.md'))).toBe(true)
+
+    makeTree(j(root, 'node_modules'), { p: skillPkg('p', 's', '2.0.0', { 'new.md': 'new' }) })
+    fs.rmSync(j(root, 'node_modules', 'p', 'skills', 's', 'old.md'))
+    const { result } = await run(root)
+    const skillDir = j(root, '.agents', 'skills', 's')
+    expect(result.actions).toContainEqual(expect.objectContaining({ kind: 'updated', skill: 's' }))
+    expect(exists(j(skillDir, 'old.md'))).toBe(false)
+    expect(read(j(skillDir, 'new.md'))).toBe('new')
+    expect(readSource(skillDir).version).toBe('2.0.0')
   })
 
-  test('on Windows without Git symlink support, copies are the default', async () => {
-    const root = makeProject({
-      node_modules: { p: skillPkg('p', 's') },
-      '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
-      '.claude': { skills: { u2: { 'SKILL.md': skillMd('u2') } } },
-    })
-    await run(root, { platform: 'win32', gitSymlinks: () => false })
-    expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
-    expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
+  test('version-only bump refreshes source.json without touching content', async () => {
+    const root = makeProject({ ...copyMode, node_modules: { p: skillPkg('p', 's', '1.0.0') } })
+    await run(root)
+    const before = readSource(j(root, '.agents', 'skills', 's'))
+    makeTree(j(root, 'node_modules'), { p: { 'package.json': pkgJson('p', '1.0.1') } })
+    const { result } = await run(root)
+    const after = readSource(j(root, '.agents', 'skills', 's'))
+    expect(result.actions).toContainEqual(expect.objectContaining({ kind: 'updated' }))
+    expect(after.version).toBe('1.0.1')
+    expect(after.hash).toBe(before.hash)
   })
 
-  test('on Windows with Git symlink support, symlinks are the default', async () => {
-    const root = makeProject({
-      node_modules: { p: skillPkg('p', 's') },
-      '.agents': { skills: { u1: { 'SKILL.md': skillMd('u1') } } },
-      '.claude': { skills: { u2: { 'SKILL.md': skillMd('u2') } } },
-    })
-    await run(root, { platform: 'win32', gitSymlinks: () => true })
+  test('a second run is idempotent (up-to-date)', async () => {
+    const root = makeProject({ ...copyMode, node_modules: { p: skillPkg('p', 's') } })
+    await run(root)
+    const { result } = await run(root)
+    expect(result.actions).toEqual([expect.objectContaining({ kind: 'up-to-date', skill: 's' })])
+    expect(result.exitCode).toBe(0)
+  })
+
+  test('links (from symlink mode) are replaced by copies', async () => {
+    const root = makeProject({ node_modules: { p: skillPkg('p', 's') }, ...twoTargets })
+    await run(root)
+    makeTree(root, copyMode)
+    const { result } = await run(root)
+    expect(result.actions).toEqual([{ kind: 'updated', skill: 's', package: 'p', detail: '.agents/skills' }])
     expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
-    expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(true)
+    expect(readSource(j(root, '.agents', 'skills', 's')).package).toBe('p')
     expect(linkTarget(j(root, '.claude', 'skills', 's'))).toBe('../../.agents/skills/s')
   })
 
-  test('on Windows, an existing symlink pattern wins even without Git symlink support', async () => {
-    const root = makeProject({
-      node_modules: { p: skillPkg('p', 's') },
-      '.claude': { skills: { existing: { 'SKILL.md': skillMd('existing') } } },
-      '.agents': { skills: {} },
+  describe('mirroring between skills dirs', () => {
+    test('multiple targets: real files in .agents/skills, relative symlinks elsewhere', async () => {
+      const root = makeProject({ ...copyMode, node_modules: { p: skillPkg('p', 's') }, ...twoTargets })
+      await run(root)
+      expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
+      expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(true)
+      expect(linkTarget(j(root, '.claude', 'skills', 's'))).toBe('../../.agents/skills/s')
+      expect(read(j(root, '.claude', 'skills', 's', 'SKILL.md'))).toBe(skillMd('s'))
     })
-    fs.mkdirSync(j(root, '.agents', 'skills'), { recursive: true })
-    fs.symlinkSync(j('..', '..', '.claude', 'skills', 'existing'), j(root, '.agents', 'skills', 'existing'))
-    await run(root, { platform: 'win32', gitSymlinks: () => false })
-    expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
-    expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(true)
-  })
 
-  test('a target added later gets mirror links on the next run', async () => {
-    const root = makeProject({ node_modules: { p: skillPkg('p', 's') } })
-    await run(root) // materializes into .agents/skills
-    makeTree(root, { '.cursor': { skills: { u: { 'SKILL.md': skillMd('u') } } } })
-    await run(root)
-    expect(isLink(j(root, '.cursor', 'skills', 's'))).toBe(true)
-    expect(read(j(root, '.cursor', 'skills', 's', 'SKILL.md'))).toBe(skillMd('s'))
+    test('dir-level symlink: one physical dir, nothing mirrored', async () => {
+      const root = makeProject({
+        ...copyMode,
+        node_modules: { p: skillPkg('p', 's') },
+        '.agents': { skills: { u1: skillDir('u1') } },
+        '.claude': {},
+      })
+      fs.symlinkSync(j('..', '.agents', 'skills'), j(root, '.claude', 'skills'))
+      const { result } = await run(root)
+      expect(result.analysis?.physicalDirs).toEqual([j(root, '.agents', 'skills')])
+      expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
+      expect(exists(j(root, '.claude', 'skills', 's', 'SKILL.md'))).toBe(true)
+      expect(isLink(j(root, '.claude', 'skills'))).toBe(true)
+    })
+
+    test('existing per-skill symlink pattern: its primary dir is kept', async () => {
+      const root = makeProject({
+        ...copyMode,
+        node_modules: { p: skillPkg('p', 's') },
+        '.claude': { skills: { existing: skillDir('existing') } },
+        '.agents': { skills: {} },
+      })
+      fs.symlinkSync(j('..', '..', '.claude', 'skills', 'existing'), j(root, '.agents', 'skills', 'existing'))
+      await run(root)
+      // primary follows the existing pattern: real files in .claude/skills
+      expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
+      expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(true)
+    })
+
+    test('existing duplicated-copies pattern: copies everywhere', async () => {
+      const root = makeProject({
+        ...copyMode,
+        node_modules: { p: skillPkg('p', 's') },
+        '.agents': { skills: { existing: skillDir('existing') } },
+        '.claude': { skills: { existing: skillDir('existing') } },
+      })
+      await run(root)
+      expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
+      expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
+      expect(readSource(j(root, '.claude', 'skills', 's')).package).toBe('p')
+    })
+
+    test('on Windows without Git symlink support, copies are the default mirror style', async () => {
+      const root = makeProject({ ...copyMode, node_modules: { p: skillPkg('p', 's') }, ...twoTargets })
+      await run(root, { platform: 'win32', gitSymlinks: () => false })
+      expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
+      expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
+    })
+
+    test('on Windows with Git symlink support, symlinks are the default mirror style', async () => {
+      const root = makeProject({ ...copyMode, node_modules: { p: skillPkg('p', 's') }, ...twoTargets })
+      await run(root, { platform: 'win32', gitSymlinks: () => true })
+      expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(false)
+      expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(true)
+      expect(linkTarget(j(root, '.claude', 'skills', 's'))).toBe('../../.agents/skills/s')
+    })
+
+    test('on Windows, an existing symlink pattern wins even without Git symlink support', async () => {
+      const root = makeProject({
+        ...copyMode,
+        node_modules: { p: skillPkg('p', 's') },
+        '.claude': { skills: { existing: skillDir('existing') } },
+        '.agents': { skills: {} },
+      })
+      fs.symlinkSync(j('..', '..', '.claude', 'skills', 'existing'), j(root, '.agents', 'skills', 'existing'))
+      await run(root, { platform: 'win32', gitSymlinks: () => false })
+      expect(isLink(j(root, '.claude', 'skills', 's'))).toBe(false)
+      expect(isLink(j(root, '.agents', 'skills', 's'))).toBe(true)
+    })
+
+    test('a target added later gets mirror links on the next run', async () => {
+      const root = makeProject({ ...copyMode, node_modules: { p: skillPkg('p', 's') } })
+      await run(root) // materializes into .agents/skills
+      makeTree(root, { '.cursor': { skills: { u: skillDir('u') } } })
+      const { result } = await run(root)
+      expect(result.actions).toEqual([{ kind: 'updated', skill: 's', package: 'p', detail: '.agents/skills' }])
+      expect(linkTarget(j(root, '.cursor', 'skills', 's'))).toBe('../../.agents/skills/s')
+      expect(read(j(root, '.cursor', 'skills', 's', 'SKILL.md'))).toBe(skillMd('s'))
+    })
   })
 })

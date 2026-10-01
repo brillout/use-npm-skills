@@ -2,9 +2,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { isFile, toPosix } from './fsUtils.js'
 import type { Logger } from './logger.js'
-import { CONFIG_FILE, UsageError, type Config } from './types.js'
+import { CONFIG_FILE, UsageError, type Config, type Mode } from './types.js'
 
-const KNOWN_KEYS = ['skillsDirs', 'exclude']
+const KNOWN_KEYS = ['mode', 'skillsDirs', 'exclude']
+const MODES: Mode[] = ['symlink', 'copy']
 
 export function loadConfig(root: string, log: Logger): Config {
   const configPath = path.join(root, CONFIG_FILE)
@@ -26,6 +27,12 @@ export function loadConfig(root: string, log: Logger): Config {
   }
 
   const config: Config = {}
+  if (obj.mode !== undefined) {
+    if (!MODES.includes(obj.mode as Mode)) {
+      throw new UsageError(`${CONFIG_FILE}: "mode" must be ${MODES.map((mode) => JSON.stringify(mode)).join(' or ')}`)
+    }
+    config.mode = obj.mode as Mode
+  }
   if (obj.skillsDirs !== undefined) {
     config.skillsDirs = parseStringArray(obj.skillsDirs, 'skillsDirs')
     for (const dir of config.skillsDirs) {

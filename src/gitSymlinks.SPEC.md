@@ -1,4 +1,4 @@
-Answers one question for the mirroring decision (`analyze.SPEC.md`): is Git symlink support [1] available at the project root? Only consulted on Windows, where symlinks frequently don't work; on every other platform symlinks are assumed to work.
+Answers one question for the layout decision (`analyze.SPEC.md`): is Git symlink support [1] available at the project root? Only consulted on Windows, where symlinks frequently don't work; on every other platform symlinks are assumed to work. Without it, symlink mode falls back to copy mode, and copy mode mirrors skills between skills directories with copies rather than symlinks.
 
 ## Glossary
 
@@ -32,7 +32,7 @@ The first condition without the second means the tool could not create the links
 
 #### Business logic
 
-Any failure — Git not installed, `core.symlinks` unset (Git for Windows disables symlink support by default) or disabled, symlink creation refused — counts as unavailable, making copies the mirroring default.
+Any failure — Git not installed, `core.symlinks` unset (Git for Windows disables symlink support by default) or disabled, symlink creation refused — counts as unavailable, making copies the default: copy mode instead of symlink mode, copies instead of mirror symlinks.
 
 #### Rationale
 

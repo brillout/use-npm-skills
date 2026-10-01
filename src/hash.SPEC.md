@@ -1,4 +1,4 @@
-Defines a skill's content identity: the deterministic content hash that decides whether a materialized skill is up-to-date, locally modified, or safe to delete.
+Defines a copied skill's content identity (copy mode only — a symlinked skill has no local content): the deterministic content hash that decides whether a copy is up-to-date, locally modified, or safe to delete.
 
 ## Business logic — TL;DR
 
@@ -11,7 +11,7 @@ Defines a skill's content identity: the deterministic content hash that decides 
 
 #### Problem
 
-Tamper protection and pruning both need to answer "is this materialized skill still exactly what the package shipped?" — reliably, across machines and operating systems.
+Tamper protection and pruning both need to answer "is this copy still exactly what the package shipped?" — reliably, across machines and operating systems.
 
 #### Business logic
 
